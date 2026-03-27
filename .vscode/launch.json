@@ -1,0 +1,23 @@
+{
+  "configurations": [
+    
+    {
+      "name": "Debug Application",
+      "cwd": "${workspaceFolder}/app",
+      "executable": "./firmware.elf",
+      // "serverpath": "/usr/bin/JLinkGDBServer",
+      "request": "launch",
+      "servertype": "openocd",
+      "type": "cortex-debug",
+      "device": "STM32F401RE",
+      "runToEntryPoint": "main",
+      "interface": "swd",
+      "preLaunchTask": "build_debug",
+      "configFiles": [
+        "interface/stlink.cfg",
+        "target/stm32f4x.cfg"
+      ],
+      "searchDir": ["/opt/homebrew/share/openocd/scripts"],
+    }
+  ]
+}

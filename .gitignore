@@ -1,0 +1,11 @@
+*.env
+
+*.zsh
+
+# artefacts 
+*.ld
+*.elf
+*.bin
+*.d
+*.o
+*.map
