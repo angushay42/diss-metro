@@ -2,17 +2,22 @@
 #include <libopencm3/stm32/timer.h>
 #include <libopencm3/stm32/gpio.h>
 #include <libopencm3/stm32/spi.h>
-// #include <libopencm3/stm32/i2c.h>
-
-#define LED_PORT (GPIOA)  // port is a collection of pins (16 in this case)
-#define LED_PIN (GPIO5)   // pin is the connection to the LED
+#include <libopencm3/stm32/usart.h>
+#include <libopencm3/cm3/nvic.h>        // from LowByteProductions
 
 
 #define CS_PIN (GPIO6)
 #define CS_PORT (GPIOB)
 #define TIM_ADC (RCC_TIM1)  // TODO
 
-/*
+/* UART defines */
+// stm32f401 uses USART2 (from nucleo user manual)
+#define UART_PORT (GPIOA)
+#define UART_TX_PIN (GPIO2)
+#define UART_RX_PIN (GPIO3)
+#define UART_BAUD_RATE (115200) // from Google
+
+/* game plan
 get input from pot (tempo)
     maybe default value?
 generate pulse at provided tempo
@@ -42,17 +47,6 @@ static void gpio_setup(void) {
     // these are given by datasheet, thankfully all in same AF column
     gpio_set_af(GPIOA, GPIO_AF5, GPIO5 | GPIO6 | GPIO7);
 }
-
-// static void orig_gpio_setup(void) {
-//     rcc_periph_clock_enable(RCC_GPIOA);
-//     gpio_mode_setup(LED_PORT, GPIO_MODE_OUTPUT, GPIO_PUPD_PULLDOWN, LED_PIN);
-// }
-
-// static void delay_cycles(uint32_t cycles) {
-//     for (uint32_t i = 0; i < cycles; i++) {
-//       __asm__ ("nop");
-//     }
-// }
 
 /* Might not even need this as CLK is for SPI... */
 // static void tim_setup(void) { 
@@ -87,12 +81,27 @@ static void spi_rcv(void) {
     gpio_set(CS_PORT, CS_PIN);
 }
 
-// configure a pin to read analog input for the potentiometer, see
-// what it outputs?
+/* adapted from https://github.com/lowbyteproductions/bare-metal-series */
+static void uart_setup(void) {
+    // enable clock too
+    rcc_periph_clock_enable(RCC_USART2);
+
+    usart_set_mode(USART2, USART_MODE_TX_RX);   // duplex
+    usart_set_flow_control(USART2, USART_FLOWCONTROL_NONE);
+    usart_set_baudrate(USART2, UART_BAUD_RATE);
+    usart_set_databits(USART2, 8);  // byte
+    usart_set_stopbits(USART2, 1);
+    usart_set_parity(USART2, USART_PARITY_NONE);
+
+    usart_enable_rx_interrupt(USART2);
+    nvic_enable_irq(NVIC_USART2_IRQ);       // got interrupt, where handler?
+
+    // enable last, configure first?
+    usart_enable(USART2);
+}
 
 
-// adc must be brought high before going low, this is selecting
-// 
+
 
 int main(void) {
     rcc_setup();
@@ -104,11 +113,7 @@ int main(void) {
     int i = 0;
     while (1) {
         spi_rcv();
-        // gpio_clear(CS_PORT, CS_PIN);    // pull low to initiate transfer  
-        // spi_write(SPI1, 0xFF);
-        // gpio_set(CS_PORT, CS_PIN);
-        // gpio_toggle(LED_PORT, LED_PIN);
-        // delay_cycles(84000000/ 4);
+        
     }
     return 0;
 }
