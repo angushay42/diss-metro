@@ -4,7 +4,7 @@
             "name": "Mac",
             "includePath": [
                 "${workspaceFolder}/**",
-                ""
+                "${workspaceFolder}/app/inc"
             ],
             "defines": [
                 "STM32F4",

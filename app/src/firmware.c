@@ -1,10 +1,15 @@
+// libopencm3 defines
 #include <libopencm3/stm32/rcc.h>
 #include <libopencm3/stm32/timer.h>
 #include <libopencm3/stm32/gpio.h>
 #include <libopencm3/stm32/spi.h>
 #include <libopencm3/stm32/usart.h>
 #include <libopencm3/cm3/nvic.h>        // from LowByteProductions
+#include <libopencm3/stm32/syscfg.h>
+#include <libopencm3/cm3/systick.h>
 
+// FreeRTOS defines
+// #include "FreeRTOS.h"
 
 #define CS_PIN (GPIO6)
 #define CS_PORT (GPIOB)
@@ -95,13 +100,19 @@ static void uart_setup(void) {
 
     usart_enable_rx_interrupt(USART2);
     nvic_enable_irq(NVIC_USART2_IRQ);       // got interrupt, where handler?
+    // found handler: https://libopencm3.org/docs/latest/stm32f4/html/group__CM3__nvic__isrprototypes__STM32F4.html
+    // unsure if will be recieving much but good to have it here in case.
+    
 
     // enable last, configure first?
     usart_enable(USART2);
 }
 
-
-
+/* might not need to do this ?*/
+// static void systick_setup(void) {
+//     // systick_set_frequency(84000000, );
+    
+// }
 
 int main(void) {
     rcc_setup();
@@ -117,3 +128,10 @@ int main(void) {
     }
     return 0;
 }
+
+// todo 
+/** 
+* demo shows this implemented in main.c, so prototype is here and should 
+* be implemented.
+*/
+void vApplicationMallocFailedHook( void );
