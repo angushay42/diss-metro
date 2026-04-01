@@ -3,10 +3,11 @@
 #include <libopencm3/stm32/timer.h>
 #include <libopencm3/stm32/gpio.h>
 #include <libopencm3/stm32/spi.h>
-#include <libopencm3/stm32/usart.h>
 #include <libopencm3/cm3/nvic.h>        // from LowByteProductions
 #include <libopencm3/stm32/syscfg.h>
 #include <libopencm3/cm3/systick.h>
+
+#include "diss-uart.h"
 
 // FreeRTOS defines
 // #include "FreeRTOS.h"
@@ -15,21 +16,6 @@
 #define CS_PORT (GPIOB)
 #define TIM_ADC (RCC_TIM1)  // TODO
 
-/* UART defines */
-// stm32f401 uses USART2 (from nucleo user manual)
-#define UART_PORT (GPIOA)
-#define UART_TX_PIN (GPIO2)
-#define UART_RX_PIN (GPIO3)
-#define UART_BAUD_RATE (115200) // from Google
-
-/* game plan
-get input from pot (tempo)
-    maybe default value?
-generate pulse at provided tempo
-get input from guitar
-calculate difference between inputs
-report ?
-*/
 
 static void rcc_setup(void) {
     rcc_clock_setup_pll(&rcc_hsi_configs[RCC_CLOCK_3V3_84MHZ]);
@@ -40,6 +26,7 @@ static void gpio_setup(void) {
     rcc_periph_clock_enable(RCC_GPIOA);
     rcc_periph_clock_enable(RCC_GPIOB);
 
+    /********** spi setup ************/
     // SCLK is A5
     gpio_mode_setup(GPIOA, GPIO_MODE_AF, GPIO_PUPD_PULLDOWN, GPIO5);
     // MISO is A6
@@ -51,6 +38,14 @@ static void gpio_setup(void) {
 
     // these are given by datasheet, thankfully all in same AF column
     gpio_set_af(GPIOA, GPIO_AF5, GPIO5 | GPIO6 | GPIO7);
+
+    //todo needed?
+    /********** UART setup ************/
+    gpio_mode_setup(UART_PORT, GPIO_MODE_AF, GPIO_PUPD_PULLDOWN, UART_TX_PIN); 
+    gpio_mode_setup(UART_PORT, GPIO_MODE_AF, GPIO_PUPD_PULLDOWN, UART_RX_PIN); 
+
+    gpio_set_af(UART_PORT, UART_AF_MODE, UART_TX_PIN | UART_RX_PIN);
+
 }
 
 static void spi_setup(void) {
@@ -75,45 +70,21 @@ static void spi_rcv(void) {
     gpio_set(CS_PORT, CS_PIN);
 }
 
-/* adapted from https://github.com/lowbyteproductions/bare-metal-series */
-static void uart_setup(void) {
-    // enable clock too
-    rcc_periph_clock_enable(RCC_USART2);
-
-    usart_set_mode(USART2, USART_MODE_TX_RX);   // duplex
-    usart_set_flow_control(USART2, USART_FLOWCONTROL_NONE);
-    usart_set_baudrate(USART2, UART_BAUD_RATE);
-    usart_set_databits(USART2, 8);  // byte
-    usart_set_stopbits(USART2, 1);
-    usart_set_parity(USART2, USART_PARITY_NONE);
-
-    usart_enable_rx_interrupt(USART2);
-    nvic_enable_irq(NVIC_USART2_IRQ);       // got interrupt, where handler?
-    // found handler: https://libopencm3.org/docs/latest/stm32f4/html/group__CM3__nvic__isrprototypes__STM32F4.html
-    // unsure if will be recieving much but good to have it here in case.
-    
-
-    // enable last, configure first?
-    usart_enable(USART2);
-}
 
 /* might not need to do this ?*/
-// static void systick_setup(void) {
-//     // systick_set_frequency(84000000, );
+static void systick_setup(void) {
+    // systick_set_frequency(84000000, );
     
-// }
+}
 
 int main(void) {
     rcc_setup();
     gpio_setup();
     spi_setup();
 
-    // orig_gpio_setup();
-
     int i = 0;
     while (1) {
         spi_rcv();
-        
     }
     return 0;
 }

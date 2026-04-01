@@ -1,5 +1,52 @@
 #include "diss-uart.h"
 
+
+void usart1_isr(void) {
+    // when we receive something we want to read it to a data byte
+    
+}
+
+int uart_send_blocking(ring_buf_t *rb) {
+    // gah whats the flow?
+    // the actual send is 1 byte. 
+    // but we have a buffer to read from first
+    // buffer is written to,
+    uint8_t data; 
+    while (ring_buf_read(rb, &data) == 0) {
+        usart_send_blocking(USART2, (uint16_t) data);    // have to cast?
+    }
+}
+
+void test_uart(void) {
+    // wait for input from user (button press)
+    // on button press, write to uart
+    char test_message[30] = "Hello, world!";     // remember weird string literal rules
+    
+}
+
+
+/* adapted from https://github.com/lowbyteproductions/bare-metal-series */
+static void uart_setup(void) {
+    // enable clock too
+    rcc_periph_clock_enable(RCC_USART2);
+
+    usart_set_mode(USART2, USART_MODE_TX_RX);   // duplex
+    usart_set_flow_control(USART2, USART_FLOWCONTROL_NONE);
+    usart_set_baudrate(USART2, UART_BAUD_RATE);
+    usart_set_databits(USART2, 8);  // byte
+    usart_set_stopbits(USART2, 1);
+    usart_set_parity(USART2, USART_PARITY_NONE);
+
+    usart_enable_rx_interrupt(USART2);
+    nvic_enable_irq(NVIC_USART2_IRQ);       // got interrupt, where handler?
+    // found handler: https://libopencm3.org/docs/latest/stm32f4/html/group__CM3__nvic__isrprototypes__STM32F4.html
+    // unsure if will be recieving much but good to have it here in case.
+    
+
+    // enable last, configure first?
+    usart_enable(USART2);
+}
+
 /* initialise ring buffer. returns 0 if successful */
 int ring_buf_setup(ring_buf_t* rb, uint8_t* buffer, uint32_t size) {
     if (rb == NULL || buffer == NULL || (size & (size+1)) != 0) // todo check

@@ -5,7 +5,9 @@
             "includePath": [
                 "${workspaceFolder}/**",
                 "${workspaceFolder}/app/inc",
-                "${workspaceFolder}/FreeRTOS-LTS/FreeRTOS/FreeRTOS-Kernel"
+                "${workspaceFolder}/FreeRTOS-LTS/FreeRTOS/FreeRTOS-Kernel",
+                "/Applications/ArmGNUToolchain/15.2.rel1/arm-none-eabi/arm-none-eabi/include"
+
 
             ],
             "defines": [
