@@ -53,17 +53,6 @@ static void gpio_setup(void) {
     gpio_set_af(GPIOA, GPIO_AF5, GPIO5 | GPIO6 | GPIO7);
 }
 
-/* Might not even need this as CLK is for SPI... */
-// static void tim_setup(void) { 
-//     // clock division is given by:
-//     // CLK / 1.7 (both in MHz)
-//     // rounded down ofc, which we can give ahead of time as
-//     // 49
-//     uint32_t clk_div = 49;
-//     timer_set_mode(TIM_ADC, clk_div, TIM_CR1_CMS_CENTER_1, TIM_CR1_DIR_UP);
-
-// }
-
 static void spi_setup(void) {
     spi_init_master(
         SPI1, 
@@ -128,10 +117,3 @@ int main(void) {
     }
     return 0;
 }
-
-// todo 
-/** 
-* demo shows this implemented in main.c, so prototype is here and should 
-* be implemented.
-*/
-void vApplicationMallocFailedHook( void );

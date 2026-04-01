@@ -4,7 +4,9 @@
             "name": "Mac",
             "includePath": [
                 "${workspaceFolder}/**",
-                "${workspaceFolder}/app/inc"
+                "${workspaceFolder}/app/inc",
+                "${workspaceFolder}/FreeRTOS-LTS/FreeRTOS/FreeRTOS-Kernel"
+
             ],
             "defines": [
                 "STM32F4",
