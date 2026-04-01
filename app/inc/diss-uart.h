@@ -31,6 +31,9 @@ int ring_buf_read(ring_buf_t* rb, uint8_t* byte);
 
 
 /********** UART ***********/
-static void uart_setup(void);
+extern void uart_setup(void);
+
+extern int uart_write(uint8_t *data);
+extern int uart_read(uint8_t *byte);
 
 #endif  // INC_DISS_UART_H

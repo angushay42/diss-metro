@@ -1,3 +1,4 @@
+
 #include "diss-uart.h"
 
 
@@ -10,6 +11,7 @@ static ring_buf_t _rb = {
     .mask = RING_BUF_MAX - 1    // this seems correct
 };
 
+
 void usart1_isr(void) {
     // when we receive something we want to read it to a data byte
     // // p515 RM, can be cleared by software read or set to 0 by software
@@ -19,34 +21,31 @@ void usart1_isr(void) {
 
     // from: https://www.embedded.com/5-best-practices-for-writing-interrupt-service-routines/
     // use __inline__ to avoid function calls.
-    uart_read();
+
+    // todo I think this should be revisted when FreeRTOS is setup, 
+    // that way I can pass this off to a non-isr call AND handle the error.
+    ring_buf_write(&_rb, (uint8_t) usart_recv_blocking(USART2));
 }
 
-int uart_send_blocking(ring_buf_t *rb) {
-    // gah whats the flow?
-    // the actual send is 1 byte. 
-    // but we have a buffer to read from first
-    // buffer is written to,
-    uint8_t data; 
-    while (ring_buf_read(rb, &data) == 0) {
-        usart_send_blocking(USART2, (uint16_t) data);    // have to cast?
+/* sends an array over UAR with blocking */
+int uart_write(uint8_t *data) {
+    // copy ptr
+    uint8_t *ptr = data;
+    while (*ptr) {
+        usart_send_blocking(USART2, (uint16_t) *ptr++);    // have to cast?
     }
+    return 0;   // OK
 }
 
-int uart_read() {
-    ring_buf_read(&_rb, usart_recv(USART2));
+/* blocking writes a byte into byte and returns 0 if successful */
+int uart_read(uint8_t *byte) {
+    // todo what to do with error? 
+    int err = ring_buf_read(&_rb, byte);
+    return err;
 }
-
-void test_uart(void) {
-    // wait for input from user (button press)
-    // on button press, write to uart
-    char test_message[30] = "Hello, world!";     // remember weird string literal rules
-    
-}
-
 
 /* adapted from https://github.com/lowbyteproductions/bare-metal-series */
-static void uart_setup(void) {
+void uart_setup(void) {
     // enable clock too
     rcc_periph_clock_enable(RCC_USART2);
 

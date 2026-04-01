@@ -70,7 +70,6 @@ static void spi_rcv(void) {
     gpio_set(CS_PORT, CS_PIN);
 }
 
-
 /* might not need to do this ?*/
 static void systick_setup(void) {
     // systick_set_frequency(84000000, );
@@ -81,10 +80,20 @@ int main(void) {
     rcc_setup();
     gpio_setup();
     spi_setup();
+    uart_setup();
 
-    int i = 0;
+
+    uint8_t test_message[30] = "Hello, world!";     // remember weird string literal rules
+    uint8_t data;
+    int err;
+
     while (1) {
-        spi_rcv();
+        // spi_rcv();
+        // uart_read(data);
+        uart_write(test_message);
+        
+        // if ((err = uart_read(&data)) == 0)
+        //     break;
     }
-    return 0;
+    return err;
 }
