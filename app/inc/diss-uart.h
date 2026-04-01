@@ -7,7 +7,6 @@
 #include <libopencm3/cm3/nvic.h>
 #include <libopencm3/stm32/gpio.h>
 
-// stm32f401 uses USART2 (from nucleo user manual)
 #define UART_PORT (GPIOA)
 #define UART_TX_PIN (GPIO2)
 #define UART_RX_PIN (GPIO3)
@@ -15,12 +14,14 @@
 #define UART_BAUD_RATE (115200) // from Google
 
 
+#define RING_BUF_MAX (128)      // benchmark this
+
 /*********** ringbuffer  *************/
 typedef struct ring_buf_t {
     uint8_t* buffer;    // pointer to buffer
     uint32_t head;      // head index (write)
     uint32_t tail;      // tail index (read)
-    uint32_t mask;      // HAS to be power of 2
+    uint32_t mask;      // HAS to be (2^n) - 1
 } ring_buf_t;
 
 int ring_buf_setup(ring_buf_t* rb, uint8_t* buffer, uint32_t size);

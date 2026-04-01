@@ -1,9 +1,25 @@
 #include "diss-uart.h"
 
 
+static uint8_t buffer[RING_BUF_MAX];
+
+static ring_buf_t _rb = {
+    .buffer = buffer,
+    .head = 0,
+    .tail = 0,
+    .mask = RING_BUF_MAX - 1    // this seems correct
+};
+
 void usart1_isr(void) {
     // when we receive something we want to read it to a data byte
-    
+    // // p515 RM, can be cleared by software read or set to 0 by software
+    // bool flag = usart_get_flag(USART2, USART_SR_RXNE);      // todo, keep flag?
+
+    // software read should clear RXNE bit
+
+    // from: https://www.embedded.com/5-best-practices-for-writing-interrupt-service-routines/
+    // use __inline__ to avoid function calls.
+    uart_read();
 }
 
 int uart_send_blocking(ring_buf_t *rb) {
@@ -15,6 +31,10 @@ int uart_send_blocking(ring_buf_t *rb) {
     while (ring_buf_read(rb, &data) == 0) {
         usart_send_blocking(USART2, (uint16_t) data);    // have to cast?
     }
+}
+
+int uart_read() {
+    ring_buf_read(&_rb, usart_recv(USART2));
 }
 
 void test_uart(void) {
