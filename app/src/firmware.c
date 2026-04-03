@@ -12,9 +12,20 @@
 // FreeRTOS defines
 // #include "FreeRTOS.h"
 
-#define CS_PIN (GPIO6)
-#define CS_PORT (GPIOB)
-#define TIM_ADC (RCC_TIM1)  // TODO
+#define CS_PORT (GPIOA)
+#define CS_PIN (GPIO4)
+
+// timer defines
+#define MAX_PSC (uint32_t)(1 << 16)
+#define STAGE1_METRONOME_TIMER          (TIM4)      // TIM4 doesn't have an ETR
+#define STAGE2_METRONOME_TIMER          (TIM3)   
+#define STAGE1_METRONOME_OUT_PORT       (GPIOB)
+#define STAGE1_METRONOME_OUT_PIN        (GPIO6)
+#define STAGE2_METRONOME_IN_PORT        (GPIOD)
+#define STAGE2_METRONOME_IN_PIN         (GPIO2)
+#define STAGE2_METRONOME_OUT_PORT       (GPIOB)
+#define STAGE2_METRONOME_OUT_PIN        (GPIO4)
+
 
 
 static void rcc_setup(void) {
@@ -25,6 +36,8 @@ static void gpio_setup(void) {
     rcc_periph_clock_enable(RCC_SPI1);
     rcc_periph_clock_enable(RCC_GPIOA);
     rcc_periph_clock_enable(RCC_GPIOB);
+    rcc_periph_clock_enable(RCC_TIM3);
+    rcc_periph_clock_enable(RCC_TIM4);
 
     /********** spi setup ************/
     // SCLK is A5
@@ -33,19 +46,47 @@ static void gpio_setup(void) {
     gpio_mode_setup(GPIOA, GPIO_MODE_AF, GPIO_PUPD_PULLDOWN, GPIO6);
     // MOSI is A7
     gpio_mode_setup(GPIOA, GPIO_MODE_AF, GPIO_PUPD_PULLDOWN, GPIO7);
-    // CS is B6
+    // CS is A4 
     gpio_mode_setup(CS_PORT, GPIO_MODE_OUTPUT, GPIO_PUPD_PULLUP, CS_PIN);
 
     // these are given by datasheet, thankfully all in same AF column
     gpio_set_af(GPIOA, GPIO_AF5, GPIO5 | GPIO6 | GPIO7);
+    /******** endSPI  *****************/
 
-    //todo needed?
+
     /********** UART setup ************/
     gpio_mode_setup(UART_PORT, GPIO_MODE_AF, GPIO_PUPD_PULLDOWN, UART_TX_PIN); 
     gpio_mode_setup(UART_PORT, GPIO_MODE_AF, GPIO_PUPD_PULLDOWN, UART_RX_PIN); 
 
     gpio_set_af(UART_PORT, UART_AF_MODE, UART_TX_PIN | UART_RX_PIN);
+    /******** endUART  *****************/
 
+    /************** TIMER  *****************/
+
+    /* STAGE 1*/
+    gpio_mode_setup(
+        STAGE1_METRONOME_OUT_PORT, 
+        GPIO_MODE_AF, 
+        GPIO_PUPD_NONE,     // correct?
+        STAGE1_METRONOME_OUT_PIN
+    );
+    // /* STAGE 2 */
+    // gpio_mode_setup(
+    //     STAGE2_METRONOME_IN_PORT, 
+    //     GPIO_MODE_AF, 
+    //     GPIO_PUPD_PULLDOWN,     // correct?
+    //     STAGE2_METRONOME_IN_PIN
+    // );
+    // gpio_mode_setup(
+    //     STAGE2_METRONOME_OUT_PORT, 
+    //     GPIO_MODE_AF, 
+    //     GPIO_PUPD_NONE,     // correct?
+    //     STAGE2_METRONOME_OUT_PIN
+    // );
+
+    gpio_set_af(STAGE1_METRONOME_OUT_PORT, GPIO_AF2, STAGE1_METRONOME_OUT_PIN);
+    // gpio_set_af(STAGE2_METRONOME_IN_PORT, GPIO_AF2, STAGE2_METRONOME_IN_PIN);
+    /************** endTIMER  *****************/
 }
 
 static void spi_setup(void) {
@@ -70,30 +111,100 @@ static void spi_rcv(void) {
     gpio_set(CS_PORT, CS_PIN);
 }
 
+static inline int bpm_to_hz(float bpm, float *hz) {
+    *hz = bpm / 60;
+}
+
+static void basic_timer_setup(void) {
+    // timer_disable_counter(STAGE1_METRONOME_TIMER);
+    // from https://github.com/libopencm3/libopencm3-examples/blob/master/examples/stm32/f4/stm32f4-discovery/timer/timer.c
+    // this *should* work
+    timer_set_mode(
+        STAGE1_METRONOME_TIMER, 
+        TIM_CR1_CKD_CK_INT_MUL_4,   
+        TIM_CR1_CMS_EDGE, 
+        TIM_CR1_DIR_UP
+    );
+
+    timer_disable_preload(STAGE1_METRONOME_TIMER);
+    timer_continuous_mode(STAGE1_METRONOME_TIMER);
+    timer_set_period(STAGE1_METRONOME_TIMER, 65536);
+    timer_enable_counter(STAGE1_METRONOME_TIMER);
+}
+
+static void timer_setup(void) {
+    // init vars
+    int err, psc1, psc2;
+    float  base_tempo, hz;
+
+    err = bpm_to_hz(120, &hz);
+    if (!err) {;}
+        // do something? 
+
+    psc1 = (int) MAX_PSC;
+    // round it ? or just truncate?
+    // if BPM is 120, PSC2 is about 340
+    psc2 = (int) ((float)(42.0 / psc1) / hz);
+
+    // disable both timers before configuration.
+    timer_disable_counter(STAGE1_METRONOME_TIMER);
+    timer_disable_counter(STAGE2_METRONOME_TIMER);
+
+    // 42 / MAX_PSC = 640.869140625
+    // set first stage to generate clock at some defined frequency 
+    timer_set_mode(STAGE1_METRONOME_TIMER, (uint32_t) psc1, TIM_CR1_CMS_EDGE, TIM_CR1_DIR_UP);     // edge appropriate?
+    
+    // set second stage to have input from first stage
+    timer_set_mode(STAGE2_METRONOME_TIMER, (uint32_t) psc2, TIM_CR1_CMS_EDGE, TIM_CR1_DIR_UP);
+
+    // stage 1 will divide the clock to something nice to divide, or both can be done at once?
+    timer_slave_set_extclockmode2(STAGE2_METRONOME_TIMER, TIM_ECM2_ENABLED);
+
+    timer_enable_counter(STAGE1_METRONOME_TIMER);
+    timer_enable_counter(STAGE2_METRONOME_TIMER);
+}
+
 /* might not need to do this ?*/
 static void systick_setup(void) {
     // systick_set_frequency(84000000, );
     
 }
 
-int main(void) {
-    rcc_setup();
-    gpio_setup();
-    spi_setup();
-    uart_setup();
 
-
-    uint8_t test_message[30] = "Hello, world!";     // remember weird string literal rules
-    uint8_t data;
-    int err;
-
-    while (1) {
-        // spi_rcv();
-        // uart_read(data);
-        uart_write(test_message);
-        
-        // if ((err = uart_read(&data)) == 0)
-        //     break;
+void delay_cycles(uint32_t cycles) {
+    volatile int i;
+    for (i = 0; i < cycles; i++) {
+        __asm__ volatile ("NOP");
     }
-    return err;
 }
+
+int main(void) {
+    minimal_timer_setup();
+    while (1) {
+        
+    }
+}
+
+// int main(void) {
+//     rcc_setup();
+//     gpio_setup();
+//     spi_setup();
+//     uart_setup();
+//     basic_timer_setup;
+//     // timer_setup();
+
+//     uint8_t test_message[30] = "Hello, world!";     // remember weird string literal rules
+//     uint8_t data;
+//     int err;
+
+//     while (1) {
+//         // busy work
+//         delay_cycles(84000000 / 4);
+//         // uart_read(data);
+//         // uart_write(test_message);
+        
+//         // if ((err = uart_read(&data)) == 0)
+//         //     break;
+//     }
+//     return err;
+// }
