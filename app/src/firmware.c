@@ -202,11 +202,10 @@ static void minimal_timer_setup(void) {
 
     timer_set_mode(
         STAGE1_METRONOME_TIMER, 
-        TIM_CR1_CKD_CK_INT,   
+        TIM_CR1_CKD_CK_INT_MUL_4,   
         TIM_CR1_CMS_EDGE, 
         TIM_CR1_DIR_UP
     );
-
 
     timer_set_prescaler(STAGE1_METRONOME_TIMER, MAX_PSC);
 
@@ -215,7 +214,7 @@ static void minimal_timer_setup(void) {
 
     timer_set_period(STAGE1_METRONOME_TIMER, 65535);
 
-    timer_set_oc_value(STAGE1_METRONOME_TIMER, TIM_OC1, 65536 / 2);
+    timer_set_oc_value(STAGE1_METRONOME_TIMER, TIM_OC1, 65535/ 2);
 
     timer_enable_counter(STAGE1_METRONOME_TIMER);
     timer_enable_irq(STAGE1_METRONOME_TIMER, TIM_DIER_CC1IE);
@@ -223,9 +222,9 @@ static void minimal_timer_setup(void) {
 }
 
 void tim4_isr(void) {
-    gpio_clear(GPIOA, GPIO5);
     if (timer_get_flag(STAGE1_METRONOME_TIMER, TIM_SR_CC1IF)) {
         timer_clear_flag(STAGE1_METRONOME_TIMER, TIM_SR_CC1IF);
+        gpio_toggle(GPIOA, GPIO5);
     }
 }
 

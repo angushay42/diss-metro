@@ -179,7 +179,10 @@ flash: $(BINARY).elf
 		-c "program $(BINARY).elf verify reset exit"
 		
 debug: $(BINARY).elf
-	openocd -f interface/stlink.cfg -f target/stm32f4x.cfg
+	openocd -f interface/stlink.cfg -f target/stm32f4x.cfg &
+	sleep 1
+	arm-none-eabi-gdb -x debug.gdb $(BINARY).elf
+	pkill openocd
 
 .PHONY: images clean elf bin hex srec list
 
