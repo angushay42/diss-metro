@@ -7,6 +7,8 @@ endif
 
 SRC_DIR     = src
 INC_DIR     = inc
+BLD_DIR 	= build
+BIN_DIR		= bin
 OPENCM3_DIR = ../libopencm3
 
 BINARY = firmware
@@ -22,7 +24,7 @@ ARCH_FLAGS	= -mthumb -mcpu=cortex-m4 $(FP_FLAGS)
 ###############################################################################
 # Linkerscript
 
-LDSCRIPT = linkerscript.ld
+LDSCRIPT = ${BIN_DIR}/linkerscript.ld
 LDLIBS		+= -l$(LIBNAME)
 LDFLAGS		+= -L$(OPENCM3_DIR)/lib
 
@@ -54,8 +56,8 @@ CSTD		?= -std=c99
 ###############################################################################
 # Source files
 
-OBJS		+= $(SRC_DIR)/$(BINARY).o
-OBJS		+= $(SRC_DIR)/diss-uart.o
+OBJS		+= $(BLD_DIR)/$(BINARY).o
+OBJS		+= $(BLD_DIR)/diss-uart.o
 
 ###############################################################################
 # C flags
@@ -108,12 +110,12 @@ LDLIBS		+= -Wl,--start-group -lc -lgcc -lnosys -Wl,--end-group
 
 all: elf bin
 
-elf: $(BINARY).elf
-bin: $(BINARY).bin
-hex: $(BINARY).hex
-srec: $(BINARY).srec
-list: $(BINARY).list
-GENERATED_BINARIES=$(BINARY).elf $(BINARY).bin $(BINARY).hex $(BINARY).srec $(BINARY).list $(BINARY).map
+elf: $(BIN_DIR)/$(BINARY).elf
+bin: $(BIN_DIR)/$(BINARY).bin
+hex: $(BIN_DIR)/$(BINARY).hex
+srec: $(BIN_DIR)/$(BINARY).srec
+list: $(BIN_DIR)/$(BINARY).list
+GENERATED_BINARIES=$(BIN_DIR)/$(BINARY).elf $(BINARY).bin $(BINARY).hex $(BINARY).srec $(BINARY).list $(BINARY).map
 
 images: $(BINARY).images
 
