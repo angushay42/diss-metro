@@ -7,10 +7,11 @@
 #include <libopencm3/stm32/syscfg.h>
 #include <libopencm3/cm3/systick.h>
 
-#include "diss-uart.h"
+// other defines
+#include <math.h>
 
-// FreeRTOS defines
-// #include "FreeRTOS.h"
+// own defines
+#include "diss-uart.h"
 
 #define CS_PORT (GPIOA)
 #define CS_PIN (GPIO4)
@@ -105,7 +106,8 @@ static void spi_rcv(void) {
 
 static void timer_setup(void) {
     // init vars
-    int err, psc;
+    int err;
+    uint32_t psc;
     
     if (!err) {;}
         // do something? 
@@ -129,14 +131,12 @@ static void timer_setup(void) {
     bpm = 120;  // todo magic number
     hz = (float) bpm / 60.0;
     // input / output = psc
-    psc = ((float) rcc_apb1_frequency / (float) MAX_PSC) / hz;
-
+    psc = (uint32_t) roundf((float) (rcc_apb1_frequency / MAX_PSC) / hz);
+    
     timer_disable_preload(METRONOME_TIMER);
     timer_continuous_mode(METRONOME_TIMER);
 
-    // todo check
-    // timer_set_period(METRONOME_TIMER, (int) (1 / hz));
-    timer_set_period(METRONOME_TIMER, (uint32_t) psc);
+    timer_set_period(METRONOME_TIMER, psc);
 
     timer_enable_counter(METRONOME_TIMER);
     timer_enable_irq(METRONOME_TIMER, TIM_DIER_UIE);    // update on full count
