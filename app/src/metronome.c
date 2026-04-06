@@ -2,6 +2,7 @@
 
 /* Set bpm of metronome. Uses defined min and max bpm */
 static int metro_set_pulse(uint32_t bpm) {
+    // bug here
     if (!(MIN_BPM <= bpm <= MAX_BPM))
         return 1;   // error
     

@@ -79,6 +79,7 @@ void delay_cycles(uint32_t cycles) {
     }
 }
 
+
 int main(void) {
     rcc_setup();
     gpio_setup();

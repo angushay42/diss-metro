@@ -5,13 +5,23 @@ Q		:= @
 NULL		:= 2>/dev/null
 endif
 
-SRC_DIR     = src
-INC_DIR     = inc
-BLD_DIR 	= build
-BIN_DIR		= bin
-OPENCM3_DIR = ../libopencm3
+SRC_DIR     	= src
+INC_DIR     	= inc
+CFG_DIR			= config
+BLD_DIR 		= build
+BIN_DIR			= bin
+OPENCM3_DIR 	= ../libopencm3
+FREE_RTOS_DIR 	= ../FreeRTOS-Kernel
 
 BINARY = firmware
+
+# from Claude
+vpath %.c \
+	$(SRC_DIR) \
+	$(CFG_DIR) \
+	$(FREE_RTOS_DIR) \
+    $(FREE_RTOS_DIR)/portable/GCC/ARM_CM4F \
+    $(FREE_RTOS_DIR)/portable/MemMang
 
 ###############################################################################
 # Basic Device Setup
@@ -33,6 +43,11 @@ LDFLAGS		+= -L$(OPENCM3_DIR)/lib
 
 DEFS		+= -I$(OPENCM3_DIR)/include
 DEFS		+= -I$(INC_DIR)
+DEFS 		+= -I$(CFG_DIR)
+DEFS		+= -I$(FREE_RTOS_DIR)/include
+DEFS 		+= -I$(FREE_RTOS_DIR)/portable/GCC/ARM_CM4F
+DEFS 		+= -I$(FREE_RTOS_DIR)/portable/MemMang
+
 
 ###############################################################################
 # Executables
@@ -54,10 +69,19 @@ CSTD		?= -std=c99
 
 
 ###############################################################################
-# Source files
+# Object files
 
 OBJS		+= $(BLD_DIR)/$(BINARY).o
 OBJS		+= $(BLD_DIR)/diss-uart.o
+OBJS		+= $(BLD_DIR)/metronome.o
+
+# FreeRTOS source
+OBJS		+= $(BLD_DIR)/tasks.o
+OBJS		+= $(BLD_DIR)/list.o
+OBJS		+= $(BLD_DIR)/queue.o
+OBJS		+= $(BLD_DIR)/heap_4.o
+OBJS 		+= $(BLD_DIR)/port.o
+OBJS		+= $(BLD_DIR)/timers.o
 
 ###############################################################################
 # C flags
@@ -98,7 +122,8 @@ endif
 ###############################################################################
 # Used libraries
 
-LDLIBS		+= -Wl,--start-group -lc -lgcc -lnosys -Wl,--end-group
+# add -lm for math
+LDLIBS		+= -Wl,--start-group -lc -lm -lgcc -lnosys -Wl,--end-group
 
 ###############################################################################
 ###############################################################################
@@ -155,9 +180,13 @@ print-%:
 	@#printf "  LD      $(*).elf\n"
 	$(Q)$(LD) $(TGT_LDFLAGS) $(LDFLAGS) $(OBJS) $(LDLIBS) -o $(*).elf
 
-%.o: %.c
-	@#printf "  CC      $(*).c\n"
-	$(Q)$(CC) $(TGT_CFLAGS) $(CFLAGS) $(TGT_CPPFLAGS) $(CPPFLAGS) -o $(*).o -c $(*).c
+# %.o: %.c
+# 	@#printf "  CC      $(*).c\n"
+# 	$(Q)$(CC) $(TGT_CFLAGS) $(CFLAGS) $(TGT_CPPFLAGS) $(CPPFLAGS) -o $(*).o -c $(*).c
+
+# from Claude
+$(BLD_DIR)/%.o: %.c
+	$(Q)$(CC) $(TGT_CFLAGS) $(CFLAGS) $(TGT_CPPFLAGS) $(CPPFLAGS) -o $@ -c $<
 
 %.o: %.S
 	@#printf "  CC      $(*).S\n"
