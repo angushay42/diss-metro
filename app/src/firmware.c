@@ -66,12 +66,6 @@ static void spi_rcv(void) {
     gpio_set(CS_PORT, CS_PIN);
 }
 
-/* might not need to do this ?*/
-static void systick_setup(void) {
-    // systick_set_frequency(84000000, );
-    
-}
-
 void delay_cycles(uint32_t cycles) {
     volatile int i;
     for (i = 0; i < cycles; i++) {
@@ -87,10 +81,10 @@ int main(void) {
     uart_setup();
     metro_setup();
 
-    uint8_t data[30];
-
     while (1) {
         // todo
+        xTaskCreate(0,0,0,0,0,0);
+        
         // uart_write();    
     }
     return 0;

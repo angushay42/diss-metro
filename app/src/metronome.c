@@ -1,22 +1,35 @@
 #include "metronome.h"
 
+
+extern uint32_t metro_get_tempo() {
+    // safe?
+    return _bpm;
+}
+
 /* Set bpm of metronome. Uses defined min and max bpm */
-static int metro_set_pulse(uint32_t bpm) {
-    // bug here
-    if (!(MIN_BPM <= bpm <= MAX_BPM))
+extern int metro_set_tempo(uint32_t bpm) {
+    if (!((MIN_BPM <= bpm) && (bpm <= MAX_BPM)))
         return 1;   // error
     
     // input / output = psc
-    psc = (uint32_t) roundf((float) (rcc_apb1_frequency / MAX_PSC) / (bpm / 60.0));
-    
-    timer_set_period(TIM4, psc);
+    _psc = (uint32_t) roundf((float) (rcc_apb1_frequency / MAX_PSC) / (bpm / 60.0));
+    _bpm = bpm;
+
+    timer_set_period(TIM4, _psc);
     return 0;
 }
 
-// todo start/stop etc
+extern void metro_start(void) {
+    timer_enable_counter(TIM4);
+    // todo trigger pulse ?
+    // read manual, update might occur if something is set already
+}
+
+extern void metro_stop(void) {
+    timer_disable_counter(TIM4);
+}
 
 extern void metro_setup(void) {
-    uint32_t psc;
 
     // init clock
     rcc_clock_setup_pll(&rcc_hsi_configs[RCC_CLOCK_3V3_84MHZ]);
@@ -40,9 +53,9 @@ extern void metro_setup(void) {
     timer_disable_preload(TIM4);
     timer_continuous_mode(TIM4);
 
-    metro_set_pulse(BPM_START);
+    metro_set_tempo(BPM_START);
 
-    timer_enable_counter(TIM4);
+    // timer_enable_counter(TIM4);      // user probably doesn't expect counter to beep?
     timer_enable_irq(TIM4, TIM_DIER_UIE);    // update on full count
 
 

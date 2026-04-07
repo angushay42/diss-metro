@@ -422,9 +422,6 @@
 //    has failed if the value of the parameter passed into configASSERT() equals zero. */
 // #define configASSERT ( x )     if( ( x ) == 0 ) vAssertCalled( __FILE__, __LINE__ )
 
-// todo
-/* Define configASSERT() to disable interrupts and sit in a loop. */
-// #define configASSERT ( x )     if( ( x ) == 0 ) { taskDISABLE_INTERRUPTS(); for( ;; ); }
 
 /******************************************************************************/
 /* FreeRTOS MPU specific definitions. *****************************************/

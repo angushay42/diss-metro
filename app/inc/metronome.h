@@ -6,8 +6,8 @@
 #include <math.h>
 #include "common-defines.h"
 
-#define MAX_BPM     (40)
-#define MIN_BPM     (220)
+#define MAX_BPM     (220)
+#define MIN_BPM     (40)
 #define BPM_START   (120)
 #define MAX_PSC     (uint32_t)((1 << 16) - 1)
 
@@ -15,10 +15,14 @@
 #define METRONOME_CH1_PIN        (GPIO6)
 
 
-static uint32_t psc;
+static uint32_t _psc;
+static uint32_t _bpm;
 
+extern int metro_set_tempo(uint32_t bpm);
+extern uint32_t metro_get_tempo();
+extern void metro_start(void);
+extern void metro_stop(void);
 extern void metro_setup(void);
-static int metro_set_pulse(uint32_t bpm);
 // extern void tim4_isr(void); //todo needed?
 
 #endif  // METRONOME_H
