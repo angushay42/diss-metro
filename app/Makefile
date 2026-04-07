@@ -72,8 +72,9 @@ CSTD		?= -std=c99
 # Object files
 
 OBJS		+= $(BLD_DIR)/$(BINARY).o
-OBJS		+= $(BLD_DIR)/diss-uart.o
+OBJS		+= $(BLD_DIR)/uart.o
 OBJS		+= $(BLD_DIR)/metronome.o
+OBJS		+= $(BLD_DIR)/input.o
 
 # FreeRTOS source
 OBJS		+= $(BLD_DIR)/tasks.o

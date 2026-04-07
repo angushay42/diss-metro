@@ -1,15 +1,9 @@
 
-#include "diss-uart.h"
+#include "uart.h"
+#include "ringbuffer.h"
 
-
-static uint8_t buffer[RING_BUF_MAX];
-
-static ring_buf_t _rb = {
-    .buffer = buffer,
-    .head = 0,
-    .tail = 0,
-    .mask = RING_BUF_MAX - 1    // this seems correct
-};
+static uint16_t _buffer[RING_BUF_MAX];
+static ring_buf_t _rb;
 
 
 void usart1_isr(void) {
@@ -24,28 +18,44 @@ void usart1_isr(void) {
 
     // todo I think this should be revisted when FreeRTOS is setup, 
     // that way I can pass this off to a non-isr call AND handle the error.
-    ring_buf_write(&_rb, (uint8_t) usart_recv_blocking(USART2));
+    ring_buf_write(&_rb, usart_recv_blocking(USART2));
 }
 
 /* sends an array over UAR with blocking */
-int uart_write(uint8_t *data) {
+int uart_write_many(uint16_t *data) {
     // copy ptr
-    uint8_t *ptr = data;
+    uint16_t *ptr = data;
     while (*ptr) {
-        usart_send_blocking(USART2, (uint16_t) *ptr++);    // have to cast?
+        usart_send_blocking(USART2, *ptr++);    // have to cast?
     }
     return 0;   // OK
 }
 
+/* sends 1 byte over UART with blocking */
+extern int uart_write_once(uint16_t data) {
+    usart_send_blocking(USART2, data);
+    return 0;
+}
+
+
 /* blocking writes a byte into byte and returns 0 if successful */
-int uart_read(uint8_t *byte) {
+int uart_read(uint16_t *word) {
     // todo what to do with error? 
-    int err = ring_buf_read(&_rb, byte);
+    int err = ring_buf_read(&_rb, word);
     return err;
 }
 
 /* adapted from https://github.com/lowbyteproductions/bare-metal-series */
 void uart_setup(void) {
+    rcc_periph_clock_enable(UART_PORT);
+    rcc_periph_clock_enable(RCC_GPIOB);
+
+    /********** GPIO ************/
+    gpio_mode_setup(UART_PORT, GPIO_MODE_AF, GPIO_PUPD_PULLDOWN, UART_TX_PIN); 
+    gpio_mode_setup(UART_PORT, GPIO_MODE_AF, GPIO_PUPD_PULLDOWN, UART_RX_PIN); 
+
+    gpio_set_af(UART_PORT, UART_AF_MODE, UART_TX_PIN | UART_RX_PIN);
+    /******** endGPIO  *****************/
     // enable clock too
     rcc_periph_clock_enable(RCC_USART2);
 
@@ -64,44 +74,7 @@ void uart_setup(void) {
 
     // enable last, configure first?
     usart_enable(USART2);
-}
 
-/* initialise ring buffer. returns 0 if successful */
-int ring_buf_setup(ring_buf_t* rb, uint8_t* buffer, uint32_t size) {
-    if (rb == NULL || buffer == NULL || (size & (size+1)) != 0) // todo check
-        return 1;
-    
-    rb->buffer = buffer;
-    rb->mask = size - 1;
-    rb->head  = 0;      // could do this in one line, unsure...
-    rb->tail = 0;
-    return 0;
-}
-
-/* returns 0 if false */
-int ring_buf_empty(ring_buf_t* rb) {
-    return rb->head == rb->tail;    // 0 is false
-}
-
-/* write a byte into ring buffer. returns 0 if successful */
-int ring_buf_write(ring_buf_t* rb, uint8_t byte) {
-    if (((rb->head + 1) & rb->mask) == rb->tail)  // buffer full
-        return 1;
-    
-    rb->buffer[rb->head] = byte;
-    rb->head = (rb->head + 1) & rb->mask;
-    return 0;   // success
-}
-
-/* read a byte from ring buffer. returns 0 if successful */
-int ring_buf_read(ring_buf_t* rb, uint8_t* byte) {
-    if (rb->tail == rb->head)
-        return 1;       // err code
-    
-    // deref and copy byte
-    *byte = rb->buffer[rb->tail];
-
-    // increment pointer
-    rb->tail = (rb->tail + 1) & rb->mask;   // only works if power of 2.
-    return 0;
+    // set up buffer
+    int err = ring_buf_setup(&_rb, _buffer, RING_BUF_MAX);
 }
