@@ -11,3 +11,5 @@
 *.map
 FreeRTOS-LTS
 FreeRTOS
+
+server/

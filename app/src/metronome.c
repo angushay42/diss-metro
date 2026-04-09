@@ -1,7 +1,9 @@
 #include "metronome.h"
 
+static uint32_t _psc;
+static uint32_t _bpm;
 
-extern uint32_t metro_get_tempo() {
+extern uint32_t metro_get_tempo(void) {
     // safe?
     return _bpm;
 }
@@ -30,7 +32,6 @@ extern void metro_stop(void) {
 }
 
 extern void metro_setup(void) {
-
     // init clock
     rcc_clock_setup_pll(&rcc_hsi_configs[RCC_CLOCK_3V3_84MHZ]);
 

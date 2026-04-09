@@ -15,11 +15,8 @@
 #define METRONOME_CH1_PIN        (GPIO6)
 
 
-static uint32_t _psc;
-static uint32_t _bpm;
-
 extern int metro_set_tempo(uint32_t bpm);
-extern uint32_t metro_get_tempo();
+extern uint32_t metro_get_tempo(void);
 extern void metro_start(void);
 extern void metro_stop(void);
 extern void metro_setup(void);

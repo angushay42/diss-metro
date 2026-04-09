@@ -5,12 +5,18 @@
 
 #include "common-defines.h"
 
-#define CS_PORT (GPIOA)
-#define CS_PIN (GPIO4)
+#define DSPI            (SPI1)
+#define DSPI_PORT       (GPIOB)
+#define DSPI_SCK        (GPIO3)
+#define DSPI_MISO       (GPIO4)
+#define DSPI_MOSI       (GPIO5)
+// manual toggle
+#define DSPI_CS_PORT    (GPIOB)
+#define DSPI_CS_PIN     (GPIO6)
 
 
 extern void dspi_setup(void);
-extern void dspi_rcv();
+extern void dspi_rcv(void);
 extern int dspi_read_once(uint16_t *data);
 
 

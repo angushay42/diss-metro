@@ -6,7 +6,8 @@ static uint16_t _buffer[RING_BUF_MAX];
 static ring_buf_t _rb;
 
 
-void usart1_isr(void) {
+
+void usart2_isr(void) {
     // when we receive something we want to read it to a data byte
     // // p515 RM, can be cleared by software read or set to 0 by software
     // bool flag = usart_get_flag(USART2, USART_SR_RXNE);      // todo, keep flag?
@@ -18,7 +19,7 @@ void usart1_isr(void) {
 
     // todo I think this should be revisted when FreeRTOS is setup, 
     // that way I can pass this off to a non-isr call AND handle the error.
-    ring_buf_write(&_rb, usart_recv_blocking(USART2));
+    ring_buf_write(&_rb, usart_recv_blocking(UART));
 }
 
 /* sends an array over UAR with blocking */
@@ -26,14 +27,14 @@ int uart_write_many(uint16_t *data) {
     // copy ptr
     uint16_t *ptr = data;
     while (*ptr) {
-        usart_send_blocking(USART2, *ptr++);    // have to cast?
+        usart_send_blocking(UART, *ptr++);    // have to cast?
     }
     return 0;   // OK
 }
 
 /* sends 1 byte over UART with blocking */
 extern int uart_write_once(uint16_t data) {
-    usart_send_blocking(USART2, data);
+    usart_send_blocking(UART, data);
     return 0;
 }
 
@@ -45,35 +46,54 @@ int uart_read(uint16_t *word) {
     return err;
 }
 
+
+/*********************** test  *************************/
+extern int tuart_write_many(uint8_t *data) {
+    // copy ptr
+    uint8_t *ptr = data;
+    while (*ptr) {
+        usart_send_blocking(UART, *ptr);    // have to cast?
+        ptr++;
+    }
+    return 0;   // OK
+}
+
+extern int tuart_write_once(uint8_t data) {
+    usart_send_blocking(UART, (uint16_t) data);
+    return 0;
+}
+extern int tuart_read(uint8_t *byte) {
+    /* not implemented yet*/
+    return 0;
+}
+
+
+
+
 /* adapted from https://github.com/lowbyteproductions/bare-metal-series */
 void uart_setup(void) {
-    rcc_periph_clock_enable(UART_PORT);
-    rcc_periph_clock_enable(RCC_GPIOB);
-
+    rcc_periph_clock_enable(RCC_USART2);
+    rcc_periph_clock_enable(RCC_GPIOA);
+    
     /********** GPIO ************/
-    gpio_mode_setup(UART_PORT, GPIO_MODE_AF, GPIO_PUPD_PULLDOWN, UART_TX_PIN); 
-    gpio_mode_setup(UART_PORT, GPIO_MODE_AF, GPIO_PUPD_PULLDOWN, UART_RX_PIN); 
+    gpio_mode_setup(UART_PORT, GPIO_MODE_AF, GPIO_PUPD_PULLDOWN, UART_TX_PIN | UART_RX_PIN); 
 
     gpio_set_af(UART_PORT, UART_AF_MODE, UART_TX_PIN | UART_RX_PIN);
     /******** endGPIO  *****************/
-    // enable clock too
-    rcc_periph_clock_enable(RCC_USART2);
 
-    usart_set_mode(USART2, USART_MODE_TX_RX);   // duplex
-    usart_set_flow_control(USART2, USART_FLOWCONTROL_NONE);
-    usart_set_baudrate(USART2, UART_BAUD_RATE);
-    usart_set_databits(USART2, 8);  // byte
-    usart_set_stopbits(USART2, 1);
-    usart_set_parity(USART2, USART_PARITY_NONE);
+    usart_set_mode(UART, USART_MODE_TX_RX);   // duplex
+    usart_set_flow_control(UART, USART_FLOWCONTROL_NONE);
+    usart_set_baudrate(UART, UART_BAUD_RATE);
+    usart_set_databits(UART, 8);  // byte
+    usart_set_stopbits(UART, 1);
+    usart_set_parity(UART, USART_PARITY_NONE);
 
-    usart_enable_rx_interrupt(USART2);
-    nvic_enable_irq(NVIC_USART2_IRQ);       // got interrupt, where handler?
+    usart_enable_rx_interrupt(UART);
+    nvic_enable_irq(NVIC_USART1_IRQ);
     // found handler: https://libopencm3.org/docs/latest/stm32f4/html/group__CM3__nvic__isrprototypes__STM32F4.html
     // unsure if will be recieving much but good to have it here in case.
     
-
-    // enable last, configure first?
-    usart_enable(USART2);
+    usart_enable(UART);
 
     // set up buffer
     int err = ring_buf_setup(&_rb, _buffer, RING_BUF_MAX);

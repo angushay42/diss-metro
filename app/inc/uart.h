@@ -9,11 +9,14 @@
 #include "ringbuffer.h"
 #include "common-defines.h"
 
-#define UART_PORT (GPIOA)
-#define UART_TX_PIN (GPIO2)
-#define UART_RX_PIN (GPIO3)
-#define UART_AF_MODE (GPIO_AF7)
-#define UART_BAUD_RATE (115200) // from Google
+// USART2 is the only one that can use ST-Link
+#define UART            (USART2)
+#define UART_PORT       (GPIOA)
+#define UART_TX_PIN     (GPIO2)
+#define UART_RX_PIN     (GPIO3)
+
+#define UART_AF_MODE    (GPIO_AF7)
+#define UART_BAUD_RATE  (115200) // from Google
 
 
 extern void uart_setup(void);
@@ -21,5 +24,9 @@ extern void uart_setup(void);
 extern int uart_write_many(uint16_t *data);
 extern int uart_write_once(uint16_t data);
 extern int uart_read(uint16_t *byte);
+
+extern int tuart_write_many(uint8_t *data);
+extern int tuart_write_once(uint8_t data);
+extern int tuart_read(uint8_t *byte);
 
 #endif  // UART_H

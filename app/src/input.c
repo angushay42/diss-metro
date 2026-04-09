@@ -1,5 +1,5 @@
-// todo get dsp library or function?
 
+// todo get dsp library or function?
 #include "input.h"
 #include "ringbuffer.h"
 
@@ -9,36 +9,30 @@ static ring_buf_t _rb;
 
 extern void dspi_setup(void) {
     rcc_periph_clock_enable(RCC_SPI1);
-    rcc_periph_clock_enable(GPIOA);
-    rcc_periph_clock_enable(CS_PORT);
+    rcc_periph_clock_enable(RCC_GPIOB);
 
     /********** gpio *********** */
-    gpio_mode_setup(GPIOA, GPIO_MODE_AF, GPIO_PUPD_PULLDOWN, GPIO5);
-    // MISO is A6
-    gpio_mode_setup(GPIOA, GPIO_MODE_AF, GPIO_PUPD_PULLDOWN, GPIO6);
-    // MOSI is A7
-    gpio_mode_setup(GPIOA, GPIO_MODE_AF, GPIO_PUPD_PULLDOWN, GPIO7);
-    // CS is A4 
-    gpio_mode_setup(CS_PORT, GPIO_MODE_OUTPUT, GPIO_PUPD_PULLUP, CS_PIN);
+    gpio_mode_setup(DSPI_PORT, GPIO_MODE_AF, GPIO_PUPD_PULLDOWN, DSPI_SCK | DSPI_MISO);
+    gpio_mode_setup(DSPI_CS_PORT, GPIO_MODE_OUTPUT, GPIO_PUPD_PULLUP, DSPI_CS_PIN);
 
     // these are given by datasheet, thankfully all in same AF column
-    gpio_set_af(GPIOA, GPIO_AF5, GPIO5 | GPIO6 | GPIO7);
+    gpio_set_af(DSPI_PORT, GPIO_AF5, DSPI_SCK | DSPI_MISO);
     /******** endGPIO  *****************/
 
     spi_init_master(
-        SPI1, 
+        DSPI, 
         SPI_CR1_BAUDRATE_FPCLK_DIV_64, 
         SPI_CR1_CPOL_CLK_TO_0_WHEN_IDLE,
         SPI_CR1_CPHA_CLK_TRANSITION_1,
         SPI_CR1_DFF_16BIT,
         SPI_CR1_MSBFIRST
     );
-    spi_enable_software_slave_management(SPI1);
-    spi_set_nss_high(SPI1); // tell stm it is always master
-    spi_enable(SPI1);
+    spi_enable_software_slave_management(DSPI);
+    spi_set_nss_high(DSPI); // tell stm it is always master
+    spi_enable(DSPI);
 
-    nvic_enable_irq(NVIC_SPI1_IRQ);
-    spi_enable_rx_buffer_not_empty_interrupt(SPI1);
+    // nvic_enable_irq(NVIC_SPI1_IRQ);
+    // spi_enable_rx_buffer_not_empty_interrupt(DSPI);
 
     // set ring buffer up
     ring_buf_setup(&_rb, _buffer, RING_BUF_MAX);
@@ -46,10 +40,11 @@ extern void dspi_setup(void) {
 
 extern void dspi_rcv(void) {
     // write blank statement to ADC to start transfer (Claude)
-    gpio_clear(CS_PORT, CS_PIN);
-    spi_xfer(SPI1, (uint16_t) 0x1);
+    gpio_clear(DSPI_CS_PORT, DSPI_CS_PIN);
+    ring_buf_write(&_rb, spi_xfer(DSPI, (uint16_t) 0x1));
     // set gpio pin high
-    gpio_set(CS_PORT, CS_PIN);
+    gpio_set(DSPI_CS_PORT, DSPI_CS_PIN);
+
 }
 
 extern int dspi_read_once(uint16_t *data) {
@@ -62,7 +57,8 @@ extern int dspi_read_once(uint16_t *data) {
 void spi1_isr(void) {
     if (SPI1_SR & SPI_SR_RXNE) {
         int err;
-        uint16_t temp = spi_read(SPI1);
+        gpio_set(GPIOA, GPIO8);
+        uint16_t temp = spi_read(DSPI);
         // first 2 bits are dont care
         // 3rd bit is null
         uint16_t mask = (uint16_t) 15 << 12;
