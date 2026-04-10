@@ -3,6 +3,8 @@
 
 #include "common-defines.h"
 
+//todo cross platform for testing?
+
 #define RING_BUF_MAX (128)      // benchmark this
 
 /*********** ringbuffer  *************/

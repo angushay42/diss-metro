@@ -1,13 +1,21 @@
 #include "ringbuffer.h"
 
+
+#define RING_BUF_MAX (128)
+
 /* initialise ring buffer. returns 0 if successful */
 extern int ring_buf_setup(ring_buf_t* rb, uint16_t* buffer, uint32_t size) {
-    if (rb == NULL || buffer == NULL || (size & (size+1)) != 0) // todo check
+    // check if size is a power of 2
+    if (rb == NULL)
         return 1;
+    else if (buffer == NULL) 
+        return 2;
+    else if ((size & (size-1)) != 0)
+        return 3;
     
     rb->buffer = buffer;
     rb->mask = size - 1;
-    rb->head  = 0;      // could do this in one line, unsure...
+    rb->head  = 0;
     rb->tail = 0;
     return 0;
 }

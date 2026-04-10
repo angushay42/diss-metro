@@ -4,6 +4,7 @@
 #include <libopencm3/stm32/spi.h>
 
 #include "common-defines.h"
+#include "dependencies.h"
 
 #define DSPI            (SPI1)
 #define DSPI_PORT       (GPIOB)

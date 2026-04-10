@@ -4,6 +4,7 @@
 
 // own defines
 #include "common-defines.h"
+#include "dependencies.h"
 #include "uart.h"
 #include "metronome.h"
 #include "input.h"
@@ -21,7 +22,7 @@ void delay_cycles(uint32_t delay_cycles) {
 
 int main(void) {
     rcc_setup();
-    // dspi_setup();
+    dspi_setup();
     uart_setup();
     // metro_setup();
 
@@ -30,13 +31,11 @@ int main(void) {
     // char test[30] = "hello, world!\n";
     data = 0;
     while (1) {
-        // dspi_rcv();
-        // dspi_read_once(&data);
+        dspi_rcv();
+        dspi_read_once(&data);
         // uart_write_once(data);
         // data++;
-        uart_write_once(data+65);
-        data = (data + 1) % 27;
-        delay_cycles(84000000 / 4);
+        uart_write_once(data);
         // uart_write_many(test);
         
     }

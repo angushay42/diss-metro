@@ -6,7 +6,9 @@ static uint16_t _buffer[RING_BUF_MAX];
 static ring_buf_t _rb;
 
 
+// UART sends LSB first
 
+// todo receiving 16bit words
 void usart2_isr(void) {
     // when we receive something we want to read it to a data byte
     // // p515 RM, can be cleared by software read or set to 0 by software
@@ -27,14 +29,18 @@ int uart_write_many(uint16_t *data) {
     // copy ptr
     uint16_t *ptr = data;
     while (*ptr) {
-        usart_send_blocking(UART, *ptr++);    // have to cast?
+        usart_send_blocking(UART, (uint8_t) *ptr);
+        usart_send_blocking(UART, (uint8_t) (*ptr >> 8));
+        ptr++;
     }
     return 0;   // OK
 }
 
 /* sends 1 byte over UART with blocking */
 extern int uart_write_once(uint16_t data) {
-    usart_send_blocking(UART, data);
+    // split 16bit to two 8 bits
+    usart_send_blocking(UART, (uint8_t) data);
+    usart_send_blocking(UART, (uint8_t) (data >> 8));
     return 0;
 }
 
@@ -45,29 +51,6 @@ int uart_read(uint16_t *word) {
     int err = ring_buf_read(&_rb, word);
     return err;
 }
-
-
-/*********************** test  *************************/
-extern int tuart_write_many(uint8_t *data) {
-    // copy ptr
-    uint8_t *ptr = data;
-    while (*ptr) {
-        usart_send_blocking(UART, *ptr);    // have to cast?
-        ptr++;
-    }
-    return 0;   // OK
-}
-
-extern int tuart_write_once(uint8_t data) {
-    usart_send_blocking(UART, (uint16_t) data);
-    return 0;
-}
-extern int tuart_read(uint8_t *byte) {
-    /* not implemented yet*/
-    return 0;
-}
-
-
 
 
 /* adapted from https://github.com/lowbyteproductions/bare-metal-series */

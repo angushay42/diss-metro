@@ -8,6 +8,7 @@
 
 #include "ringbuffer.h"
 #include "common-defines.h"
+#include "dependencies.h"
 
 // USART2 is the only one that can use ST-Link
 #define UART            (USART2)
@@ -25,8 +26,5 @@ extern int uart_write_many(uint16_t *data);
 extern int uart_write_once(uint16_t data);
 extern int uart_read(uint16_t *byte);
 
-extern int tuart_write_many(uint8_t *data);
-extern int tuart_write_once(uint8_t data);
-extern int tuart_read(uint8_t *byte);
 
 #endif  // UART_H

@@ -5,6 +5,8 @@
 #include <libopencm3/stm32/timer.h>
 #include <math.h>
 #include "common-defines.h"
+#include "dependencies.h"
+
 
 #define MAX_BPM     (220)
 #define MIN_BPM     (40)
