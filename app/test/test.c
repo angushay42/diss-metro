@@ -6,19 +6,7 @@
 
 
 
-int convert(uint16_t input) {
-    uint16_t mask, mask2, mask3;
-    int converted;
-    mask = 1 << 12;
-    mask2 = (uint16_t) ~( 15 << 12);
-    mask3 = (uint16_t) ~(7 << 12);
-    // keep 4msb as 0
-    if (!(mask & input))
-        return (int) (mask2 & input); 
-    return (int) (mask3 & input);
-}
-
-short convert2(uint16_t input) {
+short convert(uint16_t input) {
     short output;
     if (!((1 << 12) & input)) {
         printf("positive\n");

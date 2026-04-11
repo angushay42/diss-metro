@@ -1,13 +1,10 @@
 
 // todo get dsp library or function?
 #include "input.h"
-#include "ringbuffer.h"
 
+extern int dspi_setup(void) {
+    int err;
 
-static uint16_t _buffer[RING_BUF_MAX];
-static ring_buf_t _rb;
-
-extern void dspi_setup(void) {
     rcc_periph_clock_enable(RCC_SPI1);
     rcc_periph_clock_enable(RCC_GPIOB);
 
@@ -21,7 +18,7 @@ extern void dspi_setup(void) {
 
     spi_init_master(
         DSPI, 
-        SPI_CR1_BAUDRATE_FPCLK_DIV_64, 
+        SPI_CR1_BAUDRATE_FPCLK_DIV_64,   // changed from 64 for testing 
         SPI_CR1_CPOL_CLK_TO_0_WHEN_IDLE,
         SPI_CR1_CPHA_CLK_TRANSITION_1,
         SPI_CR1_DFF_16BIT,
@@ -34,30 +31,33 @@ extern void dspi_setup(void) {
     // nvic_enable_irq(NVIC_SPI1_IRQ);
     // spi_enable_rx_buffer_not_empty_interrupt(DSPI);
 
-    // set ring buffer up
-    ring_buf_setup(&_rb, _buffer, RING_BUF_MAX);
+    return (err = 0);
 }
 
-extern void dspi_rcv(void) {
+extern void dspi_rcv(uint16_t *data) {
+    uint16_t temp;
     // write blank statement to ADC to start transfer (Claude)
     gpio_clear(DSPI_CS_PORT, DSPI_CS_PIN);
-    ring_buf_write(&_rb, spi_xfer(DSPI, (uint16_t) 0x1));
+    temp = spi_xfer(DSPI, (uint16_t) 0x1);
+    convert_from_adc(temp, data);
     // set gpio pin high
     gpio_set(DSPI_CS_PORT, DSPI_CS_PIN);
-
 }
 
-extern int dspi_read_once(uint16_t *data) {
-    if (ring_buf_read(&_rb, data))
-        return 1;
-    return 0;
+/* convert 13bit adc integer to a usable word */
+static void convert_from_adc(uint16_t input, uint16_t *output) {
+    uint16_t mask = (uint16_t) 15 << 12;
+    // if positive, set 4MSB to 0
+    if (!((1 << 12) & input))
+        *output = input & (~mask);
+    else 
+        *output = input | mask;
 }
 
-
+// todo still needed?
 void spi1_isr(void) {
     if (SPI1_SR & SPI_SR_RXNE) {
-        int err;
-        gpio_set(GPIOA, GPIO8);
+        gpio_set(GPIOA, GPIO8);     // could work
         uint16_t temp = spi_read(DSPI);
         // first 2 bits are dont care
         // 3rd bit is null
@@ -67,7 +67,6 @@ void spi1_isr(void) {
             temp &= ~mask;
         else 
             temp |= mask;
-        // todo handle error
-        err = ring_buf_write(&_rb, temp);
+        
     }
 }

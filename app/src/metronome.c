@@ -31,7 +31,7 @@ extern void metro_stop(void) {
     timer_disable_counter(TIM4);
 }
 
-extern void metro_setup(void) {
+extern int metro_setup(void) {
     // init clock
     rcc_clock_setup_pll(&rcc_hsi_configs[RCC_CLOCK_3V3_84MHZ]);
 
@@ -71,7 +71,7 @@ extern void metro_setup(void) {
     );
     
     /************** endTIMER  *****************/
-
+    return 0;   // OK
 }
 
 // TODO 

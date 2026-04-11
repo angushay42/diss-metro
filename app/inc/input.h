@@ -16,9 +16,10 @@
 #define DSPI_CS_PIN     (GPIO6)
 
 
-extern void dspi_setup(void);
-extern void dspi_rcv(void);
-extern int dspi_read_once(uint16_t *data);
+extern int dspi_setup(void);
+extern void dspi_rcv(uint16_t *data);
+static void convert_from_adc(uint16_t input, uint16_t *output);
+
 
 
 

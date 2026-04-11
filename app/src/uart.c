@@ -54,7 +54,7 @@ int uart_read(uint16_t *word) {
 
 
 /* adapted from https://github.com/lowbyteproductions/bare-metal-series */
-void uart_setup(void) {
+int uart_setup(void) {
     rcc_periph_clock_enable(RCC_USART2);
     rcc_periph_clock_enable(RCC_GPIOA);
     
@@ -80,4 +80,5 @@ void uart_setup(void) {
 
     // set up buffer
     int err = ring_buf_setup(&_rb, _buffer, RING_BUF_MAX);
+    return err;
 }

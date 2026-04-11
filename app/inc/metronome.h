@@ -21,7 +21,7 @@ extern int metro_set_tempo(uint32_t bpm);
 extern uint32_t metro_get_tempo(void);
 extern void metro_start(void);
 extern void metro_stop(void);
-extern void metro_setup(void);
+extern int metro_setup(void);
 // extern void tim4_isr(void); //todo needed?
 
 #endif  // METRONOME_H

@@ -20,7 +20,7 @@
 #define UART_BAUD_RATE  (115200) // from Google
 
 
-extern void uart_setup(void);
+extern int uart_setup(void);
 
 extern int uart_write_many(uint16_t *data);
 extern int uart_write_once(uint16_t data);

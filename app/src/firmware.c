@@ -31,8 +31,8 @@ int main(void) {
     // char test[30] = "hello, world!\n";
     data = 0;
     while (1) {
-        dspi_rcv();
-        dspi_read_once(&data);
+        // todo error?
+        dspi_rcv(&data);   
         // uart_write_once(data);
         // data++;
         uart_write_once(data);
