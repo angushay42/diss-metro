@@ -10,27 +10,12 @@ int test_split();
 void print_complex(char *s, complex_t x);
 
 
-/* test copy of bit reverse function */
-uint8_t test_bit_reverse(uint16_t x) {
-// reverse the bits in a word
-    uint8_t r;
-    r = 0;
-    while (x) {
-        // extract bit from right to left and build r from left to right
-        printf("r: %u, x: %u\n", r, x);
-        r |= (x & 1);
-        r <<= 1;
-        x >>= 1;
-    }
-    printf("r: %u, x: %u\n\n\n", r, x);
-    return r;
-}
-
 void print_complex(char *s, complex_t z) {
     printf("%s = %.1f%+.1fi\n", s, creal(z), cimag(z));
 }
 
 int test_fft() {
+    uint32_t size;
     uint16_t test, test_arr[8];
     complex_t res1, res2;
 
@@ -39,6 +24,7 @@ int test_fft() {
 
     test = (uint16_t) -432;
     test2 = -432;
+    size = 8;
 
     
     if ( (res1 = (complex_t) test) == (res2 = (complex_t) test2)) {
@@ -47,14 +33,13 @@ int test_fft() {
 
     uint16_t res_arr[] = {0, 4, 2, 6, 1, 5, 3, 7};
 
-    for (i = 0; i < 8; i++) {
-        test_arr[i] = test_bit_reverse((uint16_t) i);
+    for (i = 0; i < size; i++) {
+        test_arr[i] = bit_reverse((uint16_t) i, int_log2(size));
     }
     
-
-    for (i = 0; i < 8; i++) {
+    err = 0;
+    for (i = 0; i < size; i++) {
         err |= !(test_arr[i] == res_arr[i]);
-        printf("i: %i, test: %i, res: %i\n", i, test_arr[i], res_arr[i]); 
     }
     if (err)
         return 2;

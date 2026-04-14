@@ -76,7 +76,7 @@ OBJS		+= $(BLD_DIR)/uart.o
 OBJS		+= $(BLD_DIR)/metronome.o
 OBJS		+= $(BLD_DIR)/input.o
 OBJS		+= $(BLD_DIR)/ringbuffer.o
-OBJS		+= $(BLD_DIR)/analyse.o
+OBJS		+= $(BLD_DIR)/fft.o
 
 
 # FreeRTOS source

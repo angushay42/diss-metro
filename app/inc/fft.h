@@ -11,7 +11,7 @@ typedef double complex complex_t;
 
 
 uint32_t int_log2(uint32_t x);
-uint8_t bit_reverse(uint16_t x);
+uint16_t bit_reverse(uint16_t x, uint32_t lg2n);
 void fft(short *a, uint32_t N);
 
  
