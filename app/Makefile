@@ -10,8 +10,8 @@ INC_DIR     	= inc
 CFG_DIR			= config
 BLD_DIR 		= build
 BIN_DIR			= bin
-OPENCM3_DIR 	= ../libopencm3
-FREE_RTOS_DIR 	= ../FreeRTOS-Kernel
+OPENCM3_DIR 	= inc/libopencm3
+FREE_RTOS_DIR 	= inc/FreeRTOS-Kernel
 
 BINARY = firmware
 
@@ -21,7 +21,7 @@ vpath %.c \
 	$(CFG_DIR) \
 	$(FREE_RTOS_DIR) \
     $(FREE_RTOS_DIR)/portable/GCC/ARM_CM4F \
-    $(FREE_RTOS_DIR)/portable/MemMang
+    $(FREE_RTOS_DIR)/portable/MemMang \
 
 ###############################################################################
 # Basic Device Setup
@@ -76,6 +76,7 @@ OBJS		+= $(BLD_DIR)/uart.o
 OBJS		+= $(BLD_DIR)/metronome.o
 OBJS		+= $(BLD_DIR)/input.o
 OBJS		+= $(BLD_DIR)/ringbuffer.o
+OBJS		+= $(BLD_DIR)/analyse.o
 
 
 # FreeRTOS source
@@ -85,6 +86,25 @@ OBJS		+= $(BLD_DIR)/queue.o
 OBJS		+= $(BLD_DIR)/heap_4.o
 OBJS 		+= $(BLD_DIR)/port.o
 OBJS		+= $(BLD_DIR)/timers.o
+
+# # FFT source
+# OBJS       	+= $(BLD_DIR)/bluestein.o
+# OBJS       	+= $(BLD_DIR)/iterative_fft.o
+# OBJS        += $(BLD_DIR)/radix2_dit.o
+# OBJS        += $(BLD_DIR)/radix2_dif.o
+# OBJS        += $(BLD_DIR)/radix4.0
+# OBJS        += $(BLD_DIR)/mixed_radix.o
+# OBJS        += $(BLD_DIR)/split_radix.o
+# OBJS        += $(BLD_DIR)/recursive_fft.o
+# OBJS        += $(BLD_DIR)/naive_dft.o
+# OBJS        += $(BLD_DIR)/optimized_dft.o
+# OBJS        += $(BLD_DIR)/fft_auto.o
+# OBJS        += $(BLD_DIR)/fft_utils.o
+# OBJS        += $(BLD_DIR)/parallel_fft.o
+# OBJS        += $(BLD_DIR)/simd_fft.o
+# OBJS        += $(BLD_DIR)/fixed_point_fft.o
+# OBJS        += $(BLD_DIR)/fft/fft.o
+
 
 ###############################################################################
 # C flags

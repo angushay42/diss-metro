@@ -4,10 +4,10 @@
             "name": "Mac",
             "includePath": [
                 "${workspaceFolder}/**",
-                "${workspaceFolder}/app/inc",
-                "${workspaceFolder}/FreeRTOS-Kernel/include",
-                "${workspaceFolder}/FreeRTOS-Kernel/portable/GCC/ARM_CM4F",
-                "${workspaceFolder}/FreeRTOS-Kernel/portable/MemMang",
+                "${workspaceFolder}/app/inc/**",
+                "${workspaceFolder}/app/inc/FreeRTOS-Kernel/include",
+                "${workspaceFolder}/app/inc/FreeRTOS-Kernel/portable/GCC/ARM_CM4F",
+                "${workspaceFolder}/app/inc/FreeRTOS-Kernel/portable/MemMang",
                 "/Applications/ArmGNUToolchain/15.2.rel1/arm-none-eabi/arm-none-eabi/include"
 
 

@@ -2,12 +2,14 @@
 #include <libopencm3/stm32/syscfg.h>
 #include <libopencm3/cm3/systick.h>
 
+
 // own defines
 #include "common-defines.h"
 #include "dependencies.h"
 #include "uart.h"
 #include "metronome.h"
 #include "input.h"
+#include "fft.h"
 
 
 static void rcc_setup(void) {
@@ -26,18 +28,21 @@ int main(void) {
     uart_setup();
     // metro_setup();
 
-    uint16_t data;
-    // char data;
-    // char test[30] = "hello, world!\n";
-    data = 0;
-    while (1) {
-        // todo error?
-        dspi_rcv(&data);   
-        // uart_write_once(data);
-        // data++;
-        uart_write_once(data);
-        // uart_write_many(test);
-        
+    uint32_t size = 256;
+    uint16_t buffer[size], *bufp;
+
+    uint32_t i,j,k;
+
+
+    // todo double is 8 bytes so how to send that over?
+    for (i = 0; i < 100; i++) {
+        bufp = buffer;
+        for (j = 0; j < size; j++) {
+        // fill buffer
+            dspi_rcv(bufp++);  
+        }
+
+  
     }
     return 0;
 }

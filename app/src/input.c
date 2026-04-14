@@ -1,5 +1,3 @@
-
-// todo get dsp library or function?
 #include "input.h"
 
 extern int dspi_setup(void) {
@@ -34,25 +32,33 @@ extern int dspi_setup(void) {
     return (err = 0);
 }
 
-extern void dspi_rcv(uint16_t *data) {
+/* store signed 13 bit integer into data. */
+extern void dspi_rcv(short *data) {
     uint16_t temp;
+    
     // write blank statement to ADC to start transfer (Claude)
     gpio_clear(DSPI_CS_PORT, DSPI_CS_PIN);
+    
+    // get raw bits from adc
     temp = spi_xfer(DSPI, (uint16_t) 0x1);
-    convert_from_adc(temp, data);
+    
+    // convert to actual value (13 bit to short, with sign)
+    *data = (short) convert_from_adc(temp);
+
     // set gpio pin high
     gpio_set(DSPI_CS_PORT, DSPI_CS_PIN);
 }
 
 /* convert 13bit adc integer to a usable word */
-static void convert_from_adc(uint16_t input, uint16_t *output) {
+static uint16_t convert_from_adc(uint16_t input) {
     uint16_t mask = (uint16_t) 15 << 12;
     // if positive, set 4MSB to 0
     if (!((1 << 12) & input))
-        *output = input & (~mask);
+        return input & (~mask);
     else 
-        *output = input | mask;
+        return input | mask;
 }
+
 
 // todo still needed?
 void spi1_isr(void) {
