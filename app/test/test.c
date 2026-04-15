@@ -1,13 +1,16 @@
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #include "ringbuffer.h"
 #include "fft.h"
 
+/*************** prototypes ****************/
 int test_ring_buffer();
 int test_fft();
 int test_split();
 void print_complex(char *s, complex_t x);
+/*************** endprototypes ****************/
 
 
 void print_complex(char *s, complex_t z) {
@@ -20,7 +23,7 @@ int test_fft() {
     complex_t res1, res2;
 
     short test2;
-    int i, err;
+    size_t i, err;
 
     test = (uint16_t) -432;
     test2 = -432;
@@ -43,6 +46,47 @@ int test_fft() {
     }
     if (err)
         return 2;
+    
+    // perform 16-point dft 
+    size = 16;
+    double test_sin[size];
+    
+
+    // sine wave sampled at 44100Hz
+    printf("generating sine wave\n");
+    // fill sine wave
+    for (i = 0; i < size; i++) {
+        test_sin[i] = sin(2.0 * PI * 440.0 * (double) i / 44100.0);
+    }
+    printf("sine wave generated\n");
+    
+    
+    complex_t stack_res[size];
+    printf("testing stack fft\n");
+    // test stack
+    fft(test_sin, stack_res, size);
+    printf("stack fft tested\n");
+
+    for (i = 0; i<size; i++) {
+        printf("frequency domain at [%zu]: %f\n", i, creal(stack_res[i]));
+    }
+    if (stack_res[0] != 1)  // unity amplitude (1)
+        return 3;
+    
+    complex_t *heap_res = malloc((size_t) (sizeof(complex_t) * size));
+    if (heap_res == NULL)
+        return 4;
+
+    printf("testing heap fft\n");
+    // test heap
+    fft(test_sin, heap_res, size);
+    printf("heap fft tested\n");
+    if (heap_res[0] != 1) {  // unity amplitude (1)
+        free(heap_res);
+        return 3;
+    }
+
+    free(heap_res);
 
     
     return (err = 0);

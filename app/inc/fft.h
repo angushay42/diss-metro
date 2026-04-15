@@ -1,5 +1,5 @@
-#ifndef ANALYSE_H
-#define ANALYSE_H
+#ifndef FFT_H
+#define FFT_H
 
 #include <math.h>
 #include <complex.h>
@@ -12,8 +12,8 @@ typedef double complex complex_t;
 
 uint32_t int_log2(uint32_t x);
 uint16_t bit_reverse(uint16_t x, uint32_t lg2n);
-void fft(short *a, uint32_t N);
+extern void fft(double a[], complex_t A[], uint32_t N);
 
  
 
-#endif  // ANALYSE_H
+#endif  // FFT_H
