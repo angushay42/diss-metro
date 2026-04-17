@@ -31,8 +31,7 @@ int main(void) {
     uint32_t size = 256;
     uint16_t buffer[size], *bufp;
 
-    uint32_t i,j,k;
-
+    uint32_t i, j, k;
 
     // todo double is 8 bytes so how to send that over?
     for (i = 0; i < 100; i++) {
@@ -41,8 +40,6 @@ int main(void) {
         // fill buffer
             dspi_rcv(bufp++);  
         }
-
-  
     }
     return 0;
 }

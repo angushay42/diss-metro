@@ -21,37 +21,32 @@ uint32_t int_log2(uint32_t x) {
     return log;
 }
 
-
-/* implemented from Wikipedia. Takes *SIGNED* short as input, computes as complex numbers. */
-/* computs the Radix-2 Decimation in Time*/
 /** 
+ * implemented from Wikipedia. Takes *SIGNED* short as input, 
+ * computes as complex numbers.
+ * computs the Radix-2 Decimation in Time
+ * 
  * @param a - input array directly from ADC (signed short)
  * @param A - output array preallocated (signed complex)
  * @param N - size of DFT to perform.
- *  
  */ 
-
 extern void fft(double a[], complex_t A[], uint32_t N) {
     uint32_t s, k, j, lg2n;
-    double m, temp, *aptr;
+    double m;
     complex_t w_m, w, t, u;
-    size_t idx;
 
     lg2n = int_log2(N);
-    
-    aptr = a;
+
 
     // copy input and reverse, also convert to complex
-    for (k = 0; k < N; k++) {
-        temp = *(aptr + k);
-        idx = bit_reverse((uint16_t) k, lg2n);
-        A[idx] = (complex_t) temp;
-    }
+    for (k = 0; k < N; k++)
+        A[(size_t) bit_reverse((uint16_t) k, lg2n)] = (complex_t) a[k];
+    
 
     // from s=1 to log2(n)
     for (s = 1; s <= lg2n; s++) {
         m = pow((double) 2, (double) s);
-        w_m = (complex_t) cexp((2.0 * PI * I) / m); // cexp from claude
+        w_m = cexp((2.0 * PI * I) / m);
         for (k = 0; k < N; k += m) {
             w = 1;
             for (j = 0; j < m/2; j++) {
