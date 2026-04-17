@@ -13,8 +13,8 @@
 #define BPM_START   (120)
 #define MAX_PSC     (uint32_t)((1 << 16) - 1)
 
-#define METRONOME_CH1_PORT       (GPIOB)
-#define METRONOME_CH1_PIN        (GPIO6)
+#define METRONOME_CH1_PORT  (GPIOB)
+#define METRONOME_CH1_PIN   (GPIO6)
 
 
 extern int metro_set_tempo(uint32_t bpm);

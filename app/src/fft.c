@@ -1,5 +1,11 @@
 #include "fft.h"
 
+// static declarations shouldn't be in header files 
+
+static uint32_t int_log2(uint32_t x);
+static uint16_t bit_reverse(uint16_t x, uint32_t lg2n);
+
+
 /* reverse the bits in unsigned integer x */
 uint16_t bit_reverse(uint16_t x, uint32_t lg2n) {
     // reverse the bits in a word

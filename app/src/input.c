@@ -1,5 +1,7 @@
 #include "input.h"
 
+static uint16_t convert_from_adc(uint16_t input);
+
 extern int dspi_setup(void) {
     int err;
 

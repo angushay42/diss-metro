@@ -17,7 +17,7 @@ extern int metro_set_tempo(uint32_t bpm) {
     _psc = (uint32_t) roundf((float) (rcc_apb1_frequency / MAX_PSC) / (bpm / 60.0));
     _bpm = bpm;
 
-    timer_set_period(TIM4, _psc);
+    timer_set_period(TIM4, _psc - 1);
     return 0;
 }
 
@@ -32,12 +32,10 @@ extern void metro_stop(void) {
 }
 
 extern int metro_setup(void) {
-    // init clock
-    rcc_clock_setup_pll(&rcc_hsi_configs[RCC_CLOCK_3V3_84MHZ]);
-
     //timer setup
     rcc_periph_clock_enable(RCC_TIM4);
-    nvic_enable_irq(NVIC_TIM4_IRQ);     // stage 1 is TIM4
+    rcc_periph_clock_enable(RCC_GPIOB);
+    nvic_enable_irq(NVIC_TIM4_IRQ);
 
     timer_set_mode(
         TIM4, 
@@ -54,31 +52,36 @@ extern int metro_setup(void) {
     timer_disable_preload(TIM4);
     timer_continuous_mode(TIM4);
 
-    metro_set_tempo(BPM_START);
+    if (metro_set_tempo(BPM_START))
+        return 1; 
 
-    // timer_enable_counter(TIM4);      // user probably doesn't expect counter to beep?
+    timer_enable_counter(TIM4);
     timer_enable_irq(TIM4, TIM_DIER_UIE);    // update on full count
 
-
-    /************** TIMER  *****************/
-
-    /* STAGE 1*/
     gpio_mode_setup(
         METRONOME_CH1_PORT, 
         GPIO_MODE_OUTPUT, 
         GPIO_PUPD_PULLDOWN,
         METRONOME_CH1_PIN
     );
+
+    // gpio_set_af(METRONOME_CH1_PORT, GPIO_AF2, METRONOME_CH1_PIN);
+    //todo remove
+    rcc_periph_clock_enable(RCC_GPIOA);
+    gpio_mode_setup(TEST_LED_PORT, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, TEST_LED_PIN);
+    gpio_set(TEST_LED_PORT, TEST_LED_PIN);
+    gpio_set(METRONOME_CH1_PORT, METRONOME_CH1_PIN);
     
-    /************** endTIMER  *****************/
     return 0;   // OK
 }
 
 // TODO 
 extern void tim4_isr(void) {
+    
+    // gpio_toggle(TEST_LED_PORT, TEST_LED_PIN);
     if (timer_get_flag(TIM4, TIM_SR_UIF)) {
         timer_clear_flag(TIM4, TIM_SR_UIF);
-        // avoids toggling each clock tick
+        gpio_toggle(TEST_LED_PORT, TEST_LED_PIN);
         gpio_toggle(METRONOME_CH1_PORT, METRONOME_CH1_PIN);
     }
 }

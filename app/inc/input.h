@@ -13,12 +13,11 @@
 #define DSPI_MOSI       (GPIO5)
 // manual toggle
 #define DSPI_CS_PORT    (GPIOB)
-#define DSPI_CS_PIN     (GPIO6)
+#define DSPI_CS_PIN     (GPIO10)
 
 
 extern int dspi_setup(void);
 extern void dspi_rcv(short *data);
-static void convert_from_adc(uint16_t input);
 
 
 
