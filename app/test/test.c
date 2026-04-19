@@ -1,10 +1,4 @@
-#include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
-
-#include "ringbuffer.h"
-#include "fft.h"
-
+#include "test.h"
 /*************** prototypes ****************/
 int test_ring_buffer();
 int test_fft();
@@ -14,6 +8,7 @@ int test_bit_reversal(uint32_t test[], uint32_t res[], uint32_t size);
 void print_line(size_t len);
 /*************** endprototypes ****************/
 
+/**************** helper functions ************/
 void print_line(size_t len) {
     for (size_t i = 0; i < len; i++)
         printf("=");
@@ -22,6 +17,89 @@ void print_line(size_t len) {
 
 void print_complex(char *s, complex_t z) {
     printf("%s = %.1f%+.1fi\n", s, creal(z), cimag(z));
+}
+
+
+/**************** copied functions ************/
+
+/* reverse the bits in unsigned integer x */
+uint16_t bit_reverse(uint16_t x, uint32_t lg2n) {
+    // reverse the bits in a word
+    uint16_t r;
+    r = 0;
+    for (uint16_t i = 0; i < lg2n; i++) {
+        // extract bit from right to left and build r from left to right
+        r = (r << 1) | (x & 1);
+        x >>= 1;
+    }
+    return r;
+}
+
+/* simple unsigned int log2 function */
+uint32_t int_log2(uint32_t x) {
+    uint32_t log = 0;
+    // divide by 2 until less than 0
+    while (x >>= 1) {log++;}
+    return log;
+}
+
+static uint16_t scale_to_bpm(uint16_t reading) {
+    float temp = (float) reading;
+    uint16_t res;
+
+    // https://stats.stackexchange.com/questions/281162/scale-a-number-between-a-range
+    // m = ((m - r_min) / (r_max - r_min)) * (t_max - t_min) + t_min
+    temp = temp / (float) ((1 << 12) - 1);
+    temp = temp * (float) (MAX_BPM - MIN_BPM);
+    temp = temp + (float) MIN_BPM;
+
+    // original scale is 0-4096 (1<<12)
+    // temp = ((temp - 0) / (float) (1 << 12)) * (MAX_BPM - MIN_BPM) + MIN_BPM;
+    // scale reading into total range
+
+    res = (uint16_t) temp;
+    // clamp reading
+    if (res > MAX_BPM)
+        res = MAX_BPM;
+    else if (res < MIN_BPM)
+        res = MIN_BPM;
+    return res;
+}
+
+
+static void delay_cycles(uint32_t delay_cycles) {
+    for (uint32_t i = 0; i < delay_cycles; i++)
+        __asm volatile ("NOP");
+}
+
+// todo
+static void delay_ms(double ms) {
+    double tick_to_ms = 1.0 / 84000.0;
+    delay_cycles((ms * tick_to_ms) / 4);
+}
+
+
+/**************** test functions ************/
+
+int test_delay() {
+    int err;
+    double ms;
+    time_t start, end;
+
+    start = time(NULL);
+    delay_ms((ms = 1000));
+    end = time(NULL);
+    if (round(end - start) != ms)
+        return 1;
+    
+}
+
+int test_tempo_conversion() {
+    size_t i;
+    for (i = 0; i < 80 - 1; i++) {
+        printf("input: %zu, output: %u\n", i, scale_to_bpm( (uint16_t) i));
+    }
+    return 0;
 }
 
 int test_bit_reversal(uint32_t test[], uint32_t res[], uint32_t size) {
@@ -182,42 +260,53 @@ int test_ring_buffer() {
     uint16_t word, data, buffer[RING_BUF_MAX];
     int err;
 
-    if ((err = ring_buf_setup(&rb, buffer, RING_BUF_MAX))) {
+    if ((err = dring_buf_setup(&rb, buffer, RING_BUF_MAX))) {
         return 1;
     }
 
     // write a word to buffer
-    if ((err = ring_buf_write(&rb, (word = 1097))))
+    if ((err = dring_buf_write(&rb, (word = 1097))))
         return 2;
 
     // read the only word present
-    if ((err = ring_buf_read(&rb, &data))|| data != 1097)
+    if ((err = dring_buf_read(&rb, &data))|| data != 1097)
         return 3;
 
     // buffer should be empty
-    if (!ring_buf_empty(&rb)) 
+    if (!dring_buf_empty(&rb)) 
         return 4;
 
     // write a word and check if empty
-    if ((err = ring_buf_write(&rb, word)) && !ring_buf_empty(&rb))
+    if ((err = dring_buf_write(&rb, word)) && !dring_buf_empty(&rb))
         return 5;
     
     return 0;
 }
 
+static int test_count = 0;
+
+int test_handle(int (*test_f)(), char *s) {
+    int err;
+    if ((err = test_f())){
+        printf("%s FAIL with code: %i\n", s, err);
+        return ++test_count;
+    }
+    return 0;
+}
+
+/**************************** main ************************/
 int main(void) {
     int err;
+    // int (*tests)[] = {test_ring_buffer, }
 
-    if ((err = test_ring_buffer())) {
-        printf("RINGBUFFER FAIL with code: %i\n", err);
-        return 1;
-    }
+    // if (test_handle(&test_fft, "FFT"))
+    //     return 1;
 
-    if ((err = test_fft())) {
-        printf("FFT FAIL with code %i\n", err);
+    if (test_handle(&test_tempo_conversion, "TEMPO CONVERSION"))
         return 2;
-    }
     
+    if (test_handle(&test_delay, "DELAY"))
+        return 3;
     
     return 0;
 }

@@ -1,10 +1,13 @@
-#ifndef INPUT_H
-#define INPUT_H
+#ifndef DSPI_H
+#define DSPI_H
 
-#include <libopencm3/stm32/spi.h>
 
 #include "common-defines.h"
+
+#ifndef TESTING
+#include <libopencm3/stm32/spi.h>
 #include "dependencies.h"
+#endif  
 
 #define DSPI            (SPI1)
 #define DSPI_PORT       (GPIOB)
@@ -16,10 +19,10 @@
 #define DSPI_CS_PIN     (GPIO10)
 
 
-extern int dspi_setup(void);
+extern error_t dspi_setup(void);
 extern void dspi_rcv(short *data);
 
 
 
 
-#endif // INPUT_H   
+#endif // DSPI_H

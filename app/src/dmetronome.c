@@ -1,0 +1,166 @@
+#include "dmetronome.h"
+
+
+
+static uint32_t _psc;
+static uint16_t _bpm;
+
+#define ADC_PORT    (GPIOA)
+#define TEMPO_PIN   (GPIO0)
+#define VOLUME_PIN  (GPIO1)
+
+static uint8_t tempo_group[] = {ADC_CHANNEL0};
+static uint8_t volume_group[] = {ADC_CHANNEL1};
+
+static uint16_t scale_to_bpm(uint16_t reading);
+
+/**
+ * Setup ADC1 to recieve two analog inputs:
+ * volume and tempo.
+ */
+extern error_t dadc_setup(void) {
+    rcc_periph_clock_enable(RCC_ADC1);
+    rcc_periph_clock_enable(RCC_GPIOA);
+
+    // analog or AF?
+    gpio_mode_setup(ADC_PORT, GPIO_MODE_ANALOG, GPIO_PUPD_NONE, TEMPO_PIN | VOLUME_PIN);
+
+    adc_power_off(ADC1);
+    adc_disable_external_trigger_regular(ADC1);
+    adc_set_right_aligned(ADC1);
+    adc_set_clk_prescale((uint32_t) 1);
+
+    adc_set_single_conversion_mode(ADC1);
+    adc_power_on(ADC1);
+    return OK;
+}
+
+//todo should this reject invalid readings?
+static uint16_t scale_to_bpm(uint16_t reading) {
+    float temp = (float) reading;
+    uint16_t res;
+
+    // https://stats.stackexchange.com/questions/281162/scale-a-number-between-a-range
+    // m = ((m - r_min) / (r_max - r_min)) * (t_max - t_min) + t_min
+    temp = temp / (float) (1 << 12);
+    temp = temp * (float) (MAX_BPM - MIN_BPM);
+    temp = temp + (float) MIN_BPM;
+
+    // original scale is 0-4096 (1<<12)
+    // temp = ((temp - 0) / (float) (1 << 12)) * (MAX_BPM - MIN_BPM) + MIN_BPM;
+    // scale reading into total range
+
+    res = (uint16_t) temp;
+    // clamp reading
+    if (res > MAX_BPM)
+        res = MAX_BPM;
+    else if (res < MIN_BPM)
+        res = MIN_BPM;
+    return res;
+}
+
+/* read tempo measurement from ADC. Returns 0 if successful */
+extern error_t dmetro_get_tempo_reading(uint16_t *data) {
+    adc_set_regular_sequence(ADC1, 1, tempo_group);
+    adc_start_conversion_regular(ADC1);
+    while (!(adc_eoc(ADC1))); 
+
+    *data = scale_to_bpm(adc_read_regular(ADC1));
+
+    return OK;
+}
+
+/* read volume measurement from ADC. Returns 0 if successful */
+extern error_t dmetro_get_volume_reading(uint16_t *data) {
+    adc_set_regular_sequence(ADC1, 1, volume_group);
+    adc_start_conversion_regular(ADC1);
+    while (!(adc_eoc(ADC1))); 
+
+    *data = adc_read_regular(ADC1);
+    return OK;
+}
+
+/* get current tempo*/
+extern uint16_t dmetro_get_tempo(void) {
+    // safe?
+    return _bpm;
+}
+
+/* Set bpm of metronome. Uses defined min and max bpm */
+extern error_t dmetro_set_tempo(uint16_t bpm) {
+    if (bpm < MIN_BPM || bpm > MAX_BPM)
+        return DMETRO_INVALID_TEMPO;   // error
+    
+    // input / output = psc
+    _psc = (uint32_t) roundf((float) (rcc_apb1_frequency / MAX_PSC) / (bpm / 60.0));
+    _bpm = bpm;
+
+    timer_set_period(TIM4, _psc - 1);
+    return OK;
+}
+
+extern void dmetro_start(void) {
+    timer_enable_counter(TIM4);
+    // todo trigger pulse ?
+    // read manual, update might occur if something is set already
+}
+
+extern void dmetro_stop(void) {
+    timer_disable_counter(TIM4);
+}
+
+extern error_t dmetro_setup(void) {
+    error_t err;
+    //timer setup
+    rcc_periph_clock_enable(RCC_TIM4);
+    rcc_periph_clock_enable(RCC_GPIOB);
+    nvic_enable_irq(NVIC_TIM4_IRQ);
+
+    timer_set_mode(
+        TIM4, 
+        TIM_CR1_CKD_CK_INT_MUL_4,   
+        TIM_CR1_CMS_EDGE, 
+        TIM_CR1_DIR_UP
+    );
+    
+    // 84MHz / 65535 = 1.281KHz
+    timer_set_prescaler(TIM4, MAX_PSC);
+    
+    // disabling preload means that the new period will be effective immediately
+    // preload enabled would mean each period would reset, which is not desirable.
+    timer_disable_preload(TIM4);
+    timer_continuous_mode(TIM4);
+
+    if ((err = dmetro_set_tempo(BPM_START)))
+        return err; 
+
+    timer_enable_counter(TIM4);
+    timer_enable_irq(TIM4, TIM_DIER_UIE);    // update on full count
+
+    gpio_mode_setup(
+        METRONOME_CH1_PORT, 
+        GPIO_MODE_OUTPUT, 
+        GPIO_PUPD_PULLDOWN,
+        METRONOME_CH1_PIN
+    );
+
+    // gpio_set_af(METRONOME_CH1_PORT, GPIO_AF2, METRONOME_CH1_PIN);
+    //todo remove
+    rcc_periph_clock_enable(RCC_GPIOA);
+    gpio_mode_setup(TEST_LED_PORT, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, TEST_LED_PIN);
+    gpio_set(TEST_LED_PORT, TEST_LED_PIN);
+    gpio_set(METRONOME_CH1_PORT, METRONOME_CH1_PIN);
+    
+    return OK;
+}
+
+// TODO 
+extern void tim4_isr(void) {
+    
+    // gpio_toggle(TEST_LED_PORT, TEST_LED_PIN);
+    if (timer_get_flag(TIM4, TIM_SR_UIF)) {
+        timer_clear_flag(TIM4, TIM_SR_UIF);
+        gpio_toggle(TEST_LED_PORT, TEST_LED_PIN);
+        gpio_toggle(METRONOME_CH1_PORT, METRONOME_CH1_PIN);
+    }
+}

@@ -72,11 +72,11 @@ CSTD		?= -std=c99
 # Object files
 
 OBJS		+= $(BLD_DIR)/$(BINARY).o
-OBJS		+= $(BLD_DIR)/uart.o
-OBJS		+= $(BLD_DIR)/metronome.o
-OBJS		+= $(BLD_DIR)/input.o
-OBJS		+= $(BLD_DIR)/ringbuffer.o
-OBJS		+= $(BLD_DIR)/fft.o
+OBJS		+= $(BLD_DIR)/duart.o
+OBJS		+= $(BLD_DIR)/dmetronome.o
+OBJS		+= $(BLD_DIR)/dspi.o
+OBJS		+= $(BLD_DIR)/dringbuffer.o
+OBJS		+= $(BLD_DIR)/dfft.o
 
 
 # FreeRTOS source
@@ -237,6 +237,9 @@ debug: $(BINARY).elf
 	sleep 1
 	arm-none-eabi-gdb -x debug.gdb $(BINARY).elf
 	pkill openocd
+
+test: test/test.c src/d*.c
+	gcc -DTESTING test/test.c src/d*.c -o test/test -g -I inc
 
 .PHONY: images clean elf bin hex srec list
 

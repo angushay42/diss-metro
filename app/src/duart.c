@@ -1,6 +1,6 @@
 
-#include "uart.h"
-#include "ringbuffer.h"
+#include "duart.h"
+#include "dringbuffer.h"
 
 static uint16_t _buffer[RING_BUF_MAX];
 static ring_buf_t _rb;
@@ -21,11 +21,11 @@ void usart2_isr(void) {
 
     // todo I think this should be revisted when FreeRTOS is setup, 
     // that way I can pass this off to a non-isr call AND handle the error.
-    ring_buf_write(&_rb, usart_recv_blocking(UART));
+    dring_buf_write(&_rb, usart_recv_blocking(UART));
 }
 
 /* sends an array over UAR with blocking */
-int uart_write_many(uint16_t *data) {
+extern error_t duart_write_many(uint16_t *data) {
     // copy ptr
     uint16_t *ptr = data;
     while (*ptr) {
@@ -33,28 +33,26 @@ int uart_write_many(uint16_t *data) {
         usart_send_blocking(UART, (uint8_t) (*ptr >> 8));
         ptr++;
     }
-    return 0;   // OK
+    return OK;
 }
 
 /* sends 1 byte over UART with blocking */
-extern int uart_write_once(uint16_t data) {
-    // split 16bit to two 8 bits
+extern error_t duart_write_once(uint16_t data) {
+    // split 16bit to two bytes
     usart_send_blocking(UART, (uint8_t) data);
     usart_send_blocking(UART, (uint8_t) (data >> 8));
-    return 0;
+    return OK;
 }
 
-
 /* blocking writes a byte into byte and returns 0 if successful */
-int uart_read(uint16_t *word) {
-    // todo what to do with error? 
-    int err = ring_buf_read(&_rb, word);
+error_t duart_read(uint16_t *word) {
+    error_t err = dring_buf_read(&_rb, word);
     return err;
 }
 
 
 /* adapted from https://github.com/lowbyteproductions/bare-metal-series */
-int uart_setup(void) {
+error_t duart_setup(void) {
     rcc_periph_clock_enable(RCC_USART2);
     rcc_periph_clock_enable(RCC_GPIOA);
     
@@ -79,6 +77,6 @@ int uart_setup(void) {
     usart_enable(UART);
 
     // set up buffer
-    int err = ring_buf_setup(&_rb, _buffer, RING_BUF_MAX);
+    error_t err = dring_buf_setup(&_rb, _buffer, RING_BUF_MAX);
     return err;
 }

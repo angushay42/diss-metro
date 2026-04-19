@@ -10,7 +10,7 @@
 typedef double complex complex_t;
 
 
-extern void fft(double a[], complex_t A[], uint32_t N);
+extern error_t fft(double a[], complex_t A[], uint32_t N);
 
  
 

@@ -1,15 +1,10 @@
-// libopencm3 defines
-#include <libopencm3/stm32/syscfg.h>
-#include <libopencm3/cm3/systick.h>
-
-
 // own defines
 #include "common-defines.h"
 #include "dependencies.h"
-#include "uart.h"
-#include "metronome.h"
-#include "input.h"
-#include "fft.h"
+#include "duart.h"
+#include "dmetronome.h"
+#include "dspi.h"
+#include "dfft.h"
 
 
 static void rcc_setup(void) {
@@ -21,30 +16,44 @@ static void delay_cycles(uint32_t delay_cycles) {
         __asm volatile ("NOP");
 }
 
+// todo
+static void delay_ms(double ms) {
+    double tick_to_ms = 1.0 / 84000.0;
+    delay_cycles((ms * tick_to_ms) / 4);
+}
+
+// todo
+static void error_handle(error_t err) {
+    // disable interrupts 
+    // loop forever and toggle the ERROR LED with the code
+}
+
 
 int main(void) {
     rcc_setup();
+    error_t err;
 
-    if (dspi_setup())
-        return 1;
-    if (uart_setup())
-        return 2;
-    if (metro_setup())
-        return 3;
+    if ((err = dspi_setup())) {
+        error_handle(err);
+        return err;
+    }
+    if ((err = duart_setup())) {
+        error_handle(err);
+        return err;
+    }
+    if ((err = dmetro_setup())) {
+        error_handle(err);
+        return err;
+    }
 
+    uint16_t tempo;
 
-    uint32_t size = 256;
-    uint16_t buffer[size], *bufp;
-
-    uint32_t i, j, k;
-
-    // todo double is 8 bytes so how to send that over?
-    for (; ;) {
-        // bufp = buffer;
-        // for (j = 0; j < size; j++) {
-        // // fill buffer
-        //     dspi_rcv(bufp++);  
-        // }
+    while (1) {
+        delay_cycles(84000000 / 4);
+        dmetro_get_tempo_reading(&tempo);
+        if (dmetro_get_tempo() != tempo)
+            dmetro_set_tempo(tempo);    // todo error
+        duart_write_once(tempo);
     }
     return 0;
 }

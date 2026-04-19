@@ -1,14 +1,17 @@
-#ifndef UART_H
-#define UART_H
+#ifndef DUART_H
+#define DUART_H
 
+#include "dringbuffer.h"
+#include "common-defines.h"
+
+#ifndef TESTING
+#include "dependencies.h"
 #include <libopencm3/stm32/usart.h>
 #include <libopencm3/stm32/gpio.h>
 #include <libopencm3/stm32/rcc.h>
 #include <libopencm3/cm3/nvic.h>
+#endif 
 
-#include "ringbuffer.h"
-#include "common-defines.h"
-#include "dependencies.h"
 
 // USART2 is the only one that can use ST-Link
 #define UART            (USART2)
@@ -20,11 +23,11 @@
 #define UART_BAUD_RATE  (115200) // from Google
 
 
-extern int uart_setup(void);
+extern error_t duart_setup(void);
 
-extern int uart_write_many(uint16_t *data);
-extern int uart_write_once(uint16_t data);
-extern int uart_read(uint16_t *byte);
+extern error_t duart_write_many(uint16_t *data);
+extern error_t duart_write_once(uint16_t data);
+extern error_t duart_read(uint16_t *byte);
 
 
-#endif  // UART_H
+#endif  // DUART_H

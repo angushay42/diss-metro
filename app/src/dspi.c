@@ -1,10 +1,8 @@
-#include "input.h"
+#include "dspi.h"
 
 static uint16_t convert_from_adc(uint16_t input);
 
-extern int dspi_setup(void) {
-    int err;
-
+extern error_t dspi_setup(void) {
     rcc_periph_clock_enable(RCC_SPI1);
     rcc_periph_clock_enable(RCC_GPIOB);
 
@@ -31,7 +29,7 @@ extern int dspi_setup(void) {
     // nvic_enable_irq(NVIC_SPI1_IRQ);
     // spi_enable_rx_buffer_not_empty_interrupt(DSPI);
 
-    return (err = 0);
+    return OK;
 }
 
 /* store signed 13 bit integer into data. */

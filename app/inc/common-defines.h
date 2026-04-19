@@ -11,4 +11,26 @@
 #define TEST_LED_PIN        (GPIO5)
 
 
+
+
+/* Error enum. Each error will have its own value. */
+typedef enum d_errors {
+    OK,
+    DSPI_SETUP,
+    DADC_SETUP,
+    DMETRO_SETUP,
+    DUART_SETUP,
+    MAIN_LOOP,
+    DRINGBUF_SETUP,
+    DRINGBUF_EMPTY,
+    DRINGBUF_FULL,
+    DRINGBUF_INVALID_RB,
+    DRINGBUF_INVALID_BUFFER,
+    DRINGBUF_INVALID_SIZE,
+    DMETRO_INVALID_TEMPO,
+    DFFT_INVALID_ARGS,  // expand out
+    DFFT_INVALID_N,
+} error_t;
+
+
 #endif // INC_COMMON_DEFINES_H

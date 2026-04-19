@@ -1,4 +1,4 @@
-#include "fft.h"
+#include "dfft.h"
 
 // static declarations shouldn't be in header files 
 
@@ -28,15 +28,20 @@ uint32_t int_log2(uint32_t x) {
 }
 
 /** 
- * implemented from Wikipedia. Takes *SIGNED* short as input, 
+ * implemented from Wikipedia. Takes *SIGNED* double float as input and
  * computes as complex numbers.
  * computs the Radix-2 Decimation in Time
  * 
  * @param a - input array directly from ADC (signed short)
  * @param A - output array preallocated (signed complex)
- * @param N - size of DFT to perform.
+ * @param N - size of DFT to perform (must be power of 2)
  */ 
-extern void fft(double a[], complex_t A[], uint32_t N) {
+extern error_t fft(double a[], complex_t A[], uint32_t N) {
+    if (a == NULL || A == NULL)
+        return DFFT_INVALID_ARGS;
+    if (!(N & (N-1)))
+        return DFFT_INVALID_N;
+
     uint32_t s, k, j, lg2n;
     double m;
     complex_t w_m, w, t, u;
@@ -64,4 +69,5 @@ extern void fft(double a[], complex_t A[], uint32_t N) {
             }
         }
     }
+    return OK;
 }
