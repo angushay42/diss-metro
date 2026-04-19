@@ -32,6 +32,12 @@ extern error_t dspi_setup(void) {
     return OK;
 }
 
+extern error_t dspi_teardown(void) {
+    spi_disable(DSPI);
+    rcc_periph_clock_disable(RCC_SPI1);
+    return OK;
+}
+
 /* store signed 13 bit integer into data. */
 extern void dspi_rcv(short *data) {
     uint16_t temp;

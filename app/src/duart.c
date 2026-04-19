@@ -80,3 +80,10 @@ error_t duart_setup(void) {
     error_t err = dring_buf_setup(&_rb, _buffer, RING_BUF_MAX);
     return err;
 }
+
+extern error_t duart_teardown(void) {
+    nvic_disable_irq(NVIC_USART1_IRQ);
+    usart_disable_rx_interrupt(UART);
+    rcc_periph_clock_disable(RCC_USART2);
+    return OK;
+}

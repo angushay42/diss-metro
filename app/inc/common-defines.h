@@ -30,6 +30,8 @@ typedef enum d_errors {
     DMETRO_INVALID_TEMPO,
     DFFT_INVALID_ARGS,  // expand out
     DFFT_INVALID_N,
+    DADC_TIMEOUT,
+    ERROR_HANDLE_TIMEOUT
 } error_t;
 
 

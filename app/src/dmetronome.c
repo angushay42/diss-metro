@@ -1,7 +1,5 @@
 #include "dmetronome.h"
 
-
-
 static uint32_t _psc;
 static uint16_t _bpm;
 
@@ -31,7 +29,17 @@ extern error_t dadc_setup(void) {
     adc_set_clk_prescale((uint32_t) 1);
 
     adc_set_single_conversion_mode(ADC1);
-    adc_power_on(ADC1);
+    adc_power_on(ADC1);                              
+
+    //todo set up interrupts if needed.
+
+    return OK;
+}
+
+extern error_t dadc_teardown(void) {
+    adc_power_off(ADC1);
+    //todo tear down interrupts if needed.
+    rcc_periph_clock_disable(RCC_ADC1);
     return OK;
 }
 
@@ -61,9 +69,17 @@ static uint16_t scale_to_bpm(uint16_t reading) {
 
 /* read tempo measurement from ADC. Returns 0 if successful */
 extern error_t dmetro_get_tempo_reading(uint16_t *data) {
+    // maximum conversion time should be 16ns
+    time_t timeout, start;
+    timeout = 16;   // ns
     adc_set_regular_sequence(ADC1, 1, tempo_group);
     adc_start_conversion_regular(ADC1);
-    while (!(adc_eoc(ADC1))); 
+    start = time(NULL);
+    while (!(adc_eoc(ADC1)))
+        if (((time(NULL) - start) * 1000000) < timeout) {
+            *data = 0;
+            return DADC_TIMEOUT;
+        }
 
     *data = scale_to_bpm(adc_read_regular(ADC1));
 
@@ -144,23 +160,28 @@ extern error_t dmetro_setup(void) {
         METRONOME_CH1_PIN
     );
 
-    // gpio_set_af(METRONOME_CH1_PORT, GPIO_AF2, METRONOME_CH1_PIN);
     //todo remove
-    rcc_periph_clock_enable(RCC_GPIOA);
-    gpio_mode_setup(TEST_LED_PORT, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, TEST_LED_PIN);
-    gpio_set(TEST_LED_PORT, TEST_LED_PIN);
-    gpio_set(METRONOME_CH1_PORT, METRONOME_CH1_PIN);
+    // rcc_periph_clock_enable(RCC_GPIOA);
+    // gpio_mode_setup(TEST_LED_PORT, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, TEST_LED_PIN);
+    // gpio_set(TEST_LED_PORT, TEST_LED_PIN);
     
     return OK;
 }
 
-// TODO 
+extern error_t dmetro_teardown(void) {
+    timer_disable_irq(TIM4, TIM_DIER_UIE);
+    timer_disable_counter(TIM4);
+
+    rcc_periph_clock_disable(RCC_TIM4);
+    nvic_disable_irq(NVIC_TIM4_IRQ);
+    return OK;
+}
+
 extern void tim4_isr(void) {
     
     // gpio_toggle(TEST_LED_PORT, TEST_LED_PIN);
     if (timer_get_flag(TIM4, TIM_SR_UIF)) {
         timer_clear_flag(TIM4, TIM_SR_UIF);
-        gpio_toggle(TEST_LED_PORT, TEST_LED_PIN);
         gpio_toggle(METRONOME_CH1_PORT, METRONOME_CH1_PIN);
     }
 }

@@ -3,12 +3,11 @@
 
 #include <math.h>
 #include "common-defines.h"
+#include <time.h>
 
-#ifndef TESTING
+#include "dependencies.h"
 #include <libopencm3/stm32/timer.h>
 #include <libopencm3/stm32/f4/adc.h>
-#include "dependencies.h"
-#endif 
 
 
 #define MAX_BPM     (220)
@@ -21,13 +20,16 @@
 
 
 extern error_t dadc_setup(void);
+extern error_t dadc_teardown(void);
+
 extern error_t dmetro_get_tempo_reading(uint16_t *data);
 extern error_t dmetro_get_volume_reading(uint16_t *data);
 
+extern error_t dmetro_setup(void);
+extern error_t dmetro_teardown(void);
 extern error_t dmetro_set_tempo(uint16_t bpm);
 extern uint16_t dmetro_get_tempo(void);
 extern void dmetro_start(void);
 extern void dmetro_stop(void);
-extern error_t dmetro_setup(void);
 
 #endif  // DMETRONOME_H

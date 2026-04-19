@@ -4,10 +4,8 @@
 
 #include "common-defines.h"
 
-#ifndef TESTING
 #include <libopencm3/stm32/spi.h>
 #include "dependencies.h"
-#endif  
 
 #define DSPI            (SPI1)
 #define DSPI_PORT       (GPIOB)
@@ -20,9 +18,8 @@
 
 
 extern error_t dspi_setup(void);
+extern error_t dspi_teardown(void);
 extern void dspi_rcv(short *data);
-
-
 
 
 #endif // DSPI_H

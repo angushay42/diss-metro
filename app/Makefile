@@ -239,7 +239,7 @@ debug: $(BINARY).elf
 	pkill openocd
 
 test: test/test.c src/d*.c
-	gcc -DTESTING test/test.c src/d*.c -o test/test -g -I inc
+	gcc -DTESTING test/test.c src/dringbuffer.c src/dfft.c -o test/test -g -I inc -lm 
 
 .PHONY: images clean elf bin hex srec list
 

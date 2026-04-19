@@ -1,1 +1,1 @@
-arm-none-eabi-gdb -x debug.gdb firmware.c
+arm-none-eabi-gdb -x debug.gdb bin/firmware.elf

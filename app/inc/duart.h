@@ -4,13 +4,11 @@
 #include "dringbuffer.h"
 #include "common-defines.h"
 
-#ifndef TESTING
 #include "dependencies.h"
 #include <libopencm3/stm32/usart.h>
 #include <libopencm3/stm32/gpio.h>
 #include <libopencm3/stm32/rcc.h>
 #include <libopencm3/cm3/nvic.h>
-#endif 
 
 
 // USART2 is the only one that can use ST-Link
@@ -24,6 +22,7 @@
 
 
 extern error_t duart_setup(void);
+extern error_t duart_teardown(void);
 
 extern error_t duart_write_many(uint16_t *data);
 extern error_t duart_write_once(uint16_t data);

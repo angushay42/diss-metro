@@ -1,7 +1,7 @@
 {
     "configurations": [
         {
-            "name": "Mac",
+            "name": "Mac-to-arm",
             "includePath": [
                 "${workspaceFolder}/**",
                 "${workspaceFolder}/app/inc/**",
@@ -20,6 +20,23 @@
             "cStandard": "c99",
             "cppStandard": "c++14",
             "intelliSenseMode": "gcc-arm"
+        },
+        {
+            "name": "Mac",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "${workspaceFolder}/app/inc/**",
+                "/Library/Developer/CommandLineTools/usr/lib/clang/17"
+
+            ],
+            "defines": [
+                "STM32F4",
+                "__ARM_ARCH_7EN__"
+            ],
+            "compilerPath": "/usr/bin/gcc",
+            "cStandard": "c99",
+            "cppStandard": "c++14",
+            "intelliSenseMode": "gcc-arm64"
         }
     ],
     "version": 4
