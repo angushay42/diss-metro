@@ -22,13 +22,10 @@ static void delay_cycles(uint32_t delay_cycles) {
 static void delay_ms(double ms) {
     size_t i, n;
 
-    for (i = 0, n = (size_t) round(ms * 84000.0 / 13); i < n; i++)
+    // 13 too slow?
+    for (i = 0, n = (size_t) roundf(ms * CPU_FREQ / 1000 / 13); i < n; i++)
         __asm volatile ("NOP");
 }
-
-// static void blink_code(error_t err) {
-
-// }
 
 // todo
 static error_t error_handle(error_t err) {
@@ -37,17 +34,17 @@ static error_t error_handle(error_t err) {
     dspi_teardown();
     dmetro_teardown();
 
-    rcc_periph_clock_enable(RCC_GPIOC);
-    gpio_mode_setup(ERROR_LED_PORT, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, ERROR_LED_PIN);
+    
 
     // loop forever and toggle the ERROR LED with the code
     while (1) {
-        for (size_t i = 0; i <= (size_t) err; i++) {
+        for (size_t i = 0; i < (size_t) err; i++) {
             gpio_set(ERROR_LED_PORT, ERROR_LED_PIN);
-            delay_ms(500);
+            delay_ms(750);
             gpio_clear(ERROR_LED_PORT, ERROR_LED_PIN);
+            delay_ms(750);
         }
-        delay_ms(2500); // 5 seconds
+        delay_ms(5000); // 5 seconds
     }
     // should never reach
     return err;
@@ -58,8 +55,10 @@ int main(void) {
     rcc_setup();
     error_t err;
 
+    rcc_periph_clock_enable(RCC_GPIOC);
+    gpio_mode_setup(ERROR_LED_PORT, GPIO_MODE_OUTPUT, GPIO_PUPD_PULLDOWN, ERROR_LED_PIN);
+    gpio_clear(ERROR_LED_PORT, ERROR_LED_PIN);
 
-    return error_handle(MAIN_LOOP);
 
     if ((err = dspi_setup())) {
         error_handle(err);
@@ -80,6 +79,7 @@ int main(void) {
         delay_cycles(84000000 / 4);
         if ((err = dmetro_get_tempo_reading(&tempo)))
             return error_handle(err);
+        
         if (dmetro_get_tempo() != tempo)
             if ((err = dmetro_set_tempo(tempo))) 
                 return error_handle(err);

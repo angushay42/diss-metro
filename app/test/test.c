@@ -103,7 +103,6 @@ static void delay_ms(double ms) {
 
 int test_led_on, test_led_off;
 
-//bug
 static error_t error_handle(error_t err, time_t timeout, long count) {
     time_t now, start = time(NULL);
     long i = 0;
@@ -121,11 +120,13 @@ static error_t error_handle(error_t err, time_t timeout, long count) {
             err = ERROR_HANDLE_TIMEOUT;
             break;
         }
-        for (size_t i = 0; i < (size_t) err; i++) {
+        for (size_t j = 0; j < (size_t) err; j++) {
             //todo swap
             test_led_on++;
+            printf("LED ON\n");
             delay_ms(500);
             test_led_off++;
+            printf("LED OFF\n");
         }
         delay_ms(2500);
         i++;
