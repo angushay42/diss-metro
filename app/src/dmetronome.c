@@ -164,6 +164,7 @@ extern error_t dmetro_setup(void) {
     // rcc_periph_clock_enable(RCC_GPIOA);
     // gpio_mode_setup(TEST_LED_PORT, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, TEST_LED_PIN);
     // gpio_set(TEST_LED_PORT, TEST_LED_PIN);
+    return (err = dadc_setup());
     
     return OK;
 }

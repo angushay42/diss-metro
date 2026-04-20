@@ -92,6 +92,7 @@ int main(void) {
     gpio_mode_setup(ERROR_LED_PORT, GPIO_MODE_OUTPUT, GPIO_PUPD_PULLDOWN, ERROR_LED_PIN);
     gpio_clear(ERROR_LED_PORT, ERROR_LED_PIN);
 
+    // minimal_adc_setup();
     
     if ((err = dspi_setup())) {
         error_handle(err);
