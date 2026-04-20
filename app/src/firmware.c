@@ -51,6 +51,39 @@ static error_t error_handle(error_t err) {
 }
  
 
+void minimal_adc_setup() {
+    rcc_periph_clock_enable(RCC_ADC1);
+    rcc_periph_clock_enable(RCC_GPIOA);
+
+    // analog or AF?
+    gpio_mode_setup(GPIOA, GPIO_MODE_ANALOG, GPIO_PUPD_NONE, GPIO0);
+
+    adc_power_off(ADC1);
+    adc_disable_external_trigger_regular(ADC1);
+    adc_set_right_aligned(ADC1);
+    adc_set_clk_prescale((uint32_t) 1);
+
+    adc_set_single_conversion_mode(ADC1);
+    adc_power_on(ADC1);     
+    // manually toggle it down        
+    adc_clear_flag(ADC1, ADC_SR_EOC);
+}
+
+error_t minimal_adc_read(uint32_t *data, uint32_t cycle_timeout) {
+    uint32_t i;
+    adc_set_regular_sequence(ADC1, 1, (uint8_t[]) {0});
+    adc_start_conversion_regular(ADC1);
+    for (i = 0; !(adc_eoc(ADC1)); i++)
+        if (i > cycle_timeout) {
+            *data = 1 << 14;
+            return DADC_TIMEOUT;
+        }
+
+    *data = adc_read_regular(ADC1);
+    return OK;
+}
+
+
 int main(void) {
     rcc_setup();
     error_t err;
@@ -59,7 +92,9 @@ int main(void) {
     gpio_mode_setup(ERROR_LED_PORT, GPIO_MODE_OUTPUT, GPIO_PUPD_PULLDOWN, ERROR_LED_PIN);
     gpio_clear(ERROR_LED_PORT, ERROR_LED_PIN);
 
+    minimal_adc_setup();
 
+    
     if ((err = dspi_setup())) {
         error_handle(err);
         return err;
@@ -72,19 +107,23 @@ int main(void) {
         error_handle(err);
         return err;
     }
-
+    
+    uint32_t data, timeout;
+    timeout = 400000;
     uint16_t tempo;
 
     while (1) {
-        delay_cycles(84000000 / 4);
-        if ((err = dmetro_get_tempo_reading(&tempo)))
+        if ((err = minimal_adc_read(&data, timeout)))
             return error_handle(err);
+        delay_ms(1000);
+        duart_write_once(data);
+        // if ((err = dmetro_get_tempo_reading(&tempo)))
+        //     return error_handle(err);
         
-        if (dmetro_get_tempo() != tempo)
-            if ((err = dmetro_set_tempo(tempo))) 
-                return error_handle(err);
-        duart_write_once(tempo);
-        error_handle(MAIN_LOOP);
+        // if (dmetro_get_tempo() != tempo)
+        //     if ((err = dmetro_set_tempo(tempo))) 
+        //         return error_handle(err);
+        // duart_write_once(tempo);
     }
     return 0;
 }
