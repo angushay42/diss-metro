@@ -22,7 +22,7 @@
 extern error_t dadc_setup(void);
 extern error_t dadc_teardown(void);
 
-extern error_t dmetro_get_tempo_reading(uint16_t *data);
+extern error_t dmetro_get_tempo_reading(uint16_t *data, uint16_t cycle_timeout);
 extern error_t dmetro_get_volume_reading(uint16_t *data);
 
 extern error_t dmetro_setup(void);

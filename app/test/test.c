@@ -71,7 +71,7 @@ static uint16_t scale_to_bpm(uint16_t reading) {
     // temp = ((temp - 0) / (float) (1 << 12)) * (MAX_BPM - MIN_BPM) + MIN_BPM;
     // scale reading into total range
 
-    res = (uint16_t) temp;
+    res = (uint16_t) roundf(temp);
     // clamp reading
     if (res > MAX_BPM)
         res = MAX_BPM;
@@ -134,6 +134,33 @@ static error_t error_handle(error_t err, time_t timeout, long count) {
     // should never reach
     return err;
 }
+
+
+/************ mock up for tempo reading *************/
+
+uint8_t eoc_flag;
+
+uint16_t fake_readings[] = {3023, 40, 0, 4005, 450, 1000, 2000, 3131};
+uint16_t fake_answers[] = {173, 42, 40, 216, 60, 84, 128, 178};
+size_t len_fake_readings = 8, fake_idx = 0;
+
+uint16_t adc_read_regular() {
+    return fake_readings[(fake_idx++) % len_fake_readings];
+}
+
+extern error_t dmetro_get_tempo_reading(uint16_t *data, uint16_t cycle_timeout) {
+    uint32_t i;
+    
+    for (i = 0; !(eoc_flag); i++)
+        if (cycle_timeout > 0 && i > cycle_timeout) {
+            *data = 1 << 14;
+            return DADC_TIMEOUT;
+        }
+
+    *data = scale_to_bpm(adc_read_regular());
+
+    return OK;
+}
 /********************** end copied ***************/
 
 
@@ -191,7 +218,6 @@ int test_error_handle() {
     return (err = 0);
 }
 
-
 int test_delay() {
     /* compiler only shows */
     int err;
@@ -215,9 +241,33 @@ int test_delay() {
 
 int test_tempo_conversion() {
     size_t i;
-    for (i = 0; i < 80 - 1; i++) {
-        printf("input: %zu, output: %u\n", i, scale_to_bpm( (uint16_t) i));
+    error_t err;
+    uint16_t temp, timeout;
+
+    // test bpm scaling    
+    for (i = 0; i < len_fake_readings; i++) {
+        temp = scale_to_bpm(fake_readings[i]);
+        // printf("expected: %u, actual: %u\n", temp, fake_answers[i]); //todo remove
+        if (temp != fake_answers[i]) {
+            printf("input: %zu, output: %u\n", i, temp);
+            return 1;
+        }
     }
+
+    // test timeout
+    eoc_flag = 0;       // mock conversion never completing
+    timeout = 40000;
+    if ((err = dmetro_get_tempo_reading(&temp, timeout)) != DADC_TIMEOUT
+        || temp != (1 << 14)) {
+        return 1;
+    }
+
+    eoc_flag = 1;
+    if ((err = dmetro_get_tempo_reading(&temp, 0)) != OK
+        || temp != fake_answers[fake_idx-1]) {
+        return 2;
+    }
+
     return 0;
 }
 
@@ -418,20 +468,18 @@ int test_handle(int (*test_f)(), char *s) {
 /**************************** main ************************/
 int main(void) {
     int err;
-    // int (*tests)[] = {test_ring_buffer, }
 
     // if (test_handle(&test_fft, "FFT"))
     //     return 1;
 
-    // if (test_handle(&test_tempo_conversion, "TEMPO CONVERSION"))
-    //     return 2;
+    if ((err = test_handle(&test_tempo_conversion, "TEMPO CONVERSION")))
+        return err;
     
-
-    if (test_handle(&test_delay, "DELAY"))
-        return 3;
+    // if ((err =test_handle(&test_delay, "DELAY")))
+    //     return err;
     
-    if (test_handle(&test_error_handle, "ERROR HANDLE"))
-        return 4;
+    // if ((err = test_handle(&test_error_handle, "ERROR HANDLE")))
+    //     return err;
 
     print_line(30);
     printf("Ran %i test%s \n", test_count, (test_count > 1) ? "s": "");

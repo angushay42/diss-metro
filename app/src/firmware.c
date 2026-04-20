@@ -92,8 +92,6 @@ int main(void) {
     gpio_mode_setup(ERROR_LED_PORT, GPIO_MODE_OUTPUT, GPIO_PUPD_PULLDOWN, ERROR_LED_PIN);
     gpio_clear(ERROR_LED_PORT, ERROR_LED_PIN);
 
-    minimal_adc_setup();
-
     
     if ((err = dspi_setup())) {
         error_handle(err);
@@ -107,23 +105,22 @@ int main(void) {
         error_handle(err);
         return err;
     }
-    
-    uint32_t data, timeout;
-    timeout = 400000;
-    uint16_t tempo;
+
+    uint16_t tempo, timeout;
+    timeout = 1 << 9;   // random
 
     while (1) {
-        if ((err = minimal_adc_read(&data, timeout)))
-            return error_handle(err);
-        delay_ms(1000);
-        duart_write_once(data);
-        // if ((err = dmetro_get_tempo_reading(&tempo)))
+        // if ((err = minimal_adc_read(&data, timeout)))
         //     return error_handle(err);
+        // delay_ms(1000);
+        // duart_write_once(data);
+        if ((err = dmetro_get_tempo_reading(&tempo, timeout)))
+            return error_handle(err);
         
-        // if (dmetro_get_tempo() != tempo)
-        //     if ((err = dmetro_set_tempo(tempo))) 
-        //         return error_handle(err);
-        // duart_write_once(tempo);
+        if (dmetro_get_tempo() != tempo)
+            if ((err = dmetro_set_tempo(tempo))) 
+                return error_handle(err);
+        duart_write_once(tempo);
     }
     return 0;
 }

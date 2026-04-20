@@ -30,8 +30,9 @@ extern error_t dadc_setup(void) {
 
     adc_set_single_conversion_mode(ADC1);
     adc_power_on(ADC1);                              
-
-    //todo set up interrupts if needed.
+    
+    adc_clear_flag(ADC1, ADC_SR_EOC);       // ensure flag is cleared
+    // todo set up interrupts if needed
 
     return OK;
 }
@@ -45,8 +46,10 @@ extern error_t dadc_teardown(void) {
 
 //todo should this reject invalid readings?
 static uint16_t scale_to_bpm(uint16_t reading) {
-    float temp = (float) reading;
+    float temp;  
     uint16_t res;
+    
+    temp = (float) reading;
 
     // https://stats.stackexchange.com/questions/281162/scale-a-number-between-a-range
     // m = ((m - r_min) / (r_max - r_min)) * (t_max - t_min) + t_min
@@ -68,16 +71,13 @@ static uint16_t scale_to_bpm(uint16_t reading) {
 }
 
 /* read tempo measurement from ADC. Returns 0 if successful */
-extern error_t dmetro_get_tempo_reading(uint16_t *data) {
-    // maximum conversion time should be 16ns
-    time_t timeout, start;
-    timeout = 16;   // ns
-    adc_set_regular_sequence(ADC1, 1, tempo_group);
+extern error_t dmetro_get_tempo_reading(uint16_t *data, uint16_t cycle_timeout) {
+    uint32_t i;
+    adc_set_regular_sequence(ADC1, 1, (uint8_t[]) {0});
     adc_start_conversion_regular(ADC1);
-    start = time(NULL);
-    while (!(adc_eoc(ADC1)))
-        if (((time(NULL) - start) * 1000000) < timeout) {
-            *data = 0;
+    for (i = 0; !(adc_eoc(ADC1)); i++)
+        if (i > cycle_timeout) {
+            *data = 1 << 14;
             return DADC_TIMEOUT;
         }
 
