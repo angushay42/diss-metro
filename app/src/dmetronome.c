@@ -73,7 +73,7 @@ static uint16_t scale_to_bpm(uint16_t reading) {
 /* read tempo measurement from ADC. Returns 0 if successful */
 extern error_t dmetro_get_tempo_reading(uint16_t *data, uint16_t cycle_timeout) {
     uint32_t i;
-    adc_set_regular_sequence(ADC1, 1, (uint8_t[]) {0});
+    adc_set_regular_sequence(ADC1, 1, tempo_group);
     adc_start_conversion_regular(ADC1);
     for (i = 0; !(adc_eoc(ADC1)); i++)
         if (i > cycle_timeout) {
@@ -102,16 +102,36 @@ extern uint16_t dmetro_get_tempo(void) {
     return _bpm;
 }
 
+/* sets _psc */
+static error_t convert_to_psc(uint16_t bpm) {
+    double input, output, psc;
+    uint32_t temp;
+    if (bpm < MIN_BPM || bpm > MAX_BPM)
+        return DMETRO_INVALID_TEMPO;
+
+    // input / output = psc
+    input = (double) rcc_apb1_frequency / (double) MAX_PSC;
+    output = (double) bpm / 60.0;
+    psc = roundf(input / output);
+    temp = (uint32_t) psc;
+    if (temp >= MAX_PSC)
+        return DMETRO_INVALID_PSC;
+    _psc = (uint32_t) psc;
+    return OK;
+}
+
 /* Set bpm of metronome. Uses defined min and max bpm */
 extern error_t dmetro_set_tempo(uint16_t bpm) {
+    error_t err;
     if (bpm < MIN_BPM || bpm > MAX_BPM)
-        return DMETRO_INVALID_TEMPO;   // error
+        return (err = DMETRO_INVALID_TEMPO);   // error
     
-    // input / output = psc
-    _psc = (uint32_t) roundf((float) (rcc_apb1_frequency / MAX_PSC) / (bpm / 60.0));
+    if ((err = convert_to_psc(bpm)))
+        return err;
     _bpm = bpm;
 
-    timer_set_period(TIM4, _psc - 1);
+    // does it need to be -1?
+    timer_set_period(TIM4, _psc);
     return OK;
 }
 
@@ -182,7 +202,7 @@ extern void tim4_isr(void) {
     
     // gpio_toggle(TEST_LED_PORT, TEST_LED_PIN);
     if (timer_get_flag(TIM4, TIM_SR_UIF)) {
-        timer_clear_flag(TIM4, TIM_SR_UIF);
         gpio_toggle(METRONOME_CH1_PORT, METRONOME_CH1_PIN);
+        timer_clear_flag(TIM4, TIM_SR_UIF);
     }
 }

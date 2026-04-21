@@ -35,7 +35,6 @@ static error_t error_handle(error_t err) {
     dmetro_teardown();
 
     
-
     // loop forever and toggle the ERROR LED with the code
     while (1) {
         for (size_t i = 0; i < (size_t) err; i++) {
@@ -84,6 +83,18 @@ error_t minimal_adc_read(uint32_t *data, uint32_t cycle_timeout) {
 }
 
 
+static error_t manual_tempo_change() {
+    size_t i;
+    error_t err;
+
+    for (i = MIN_BPM; i < MAX_BPM; i++) {
+        if ((err = dmetro_set_tempo((uint16_t) i)))
+            return err;
+        delay_ms(2000);
+    }
+    return OK;
+}
+
 int main(void) {
     rcc_setup();
     error_t err;
@@ -111,16 +122,17 @@ int main(void) {
     timeout = 1 << 9;   // random
 
     while (1) {
-        // if ((err = minimal_adc_read(&data, timeout)))
-        //     return error_handle(err);
-        // delay_ms(1000);
-        // duart_write_once(data);
-        if ((err = dmetro_get_tempo_reading(&tempo, timeout)))
+        if ((err = manual_tempo_change()))
             return error_handle(err);
+
+
+        // delay_ms(1000);     // add some delay to polling
+        // if ((err = dmetro_get_tempo_reading(&tempo, timeout)))
+        //     return error_handle(err);
         
-        if (dmetro_get_tempo() != tempo)
-            if ((err = dmetro_set_tempo(tempo))) 
-                return error_handle(err);
+        // if (dmetro_get_tempo() != tempo)
+        //     if ((err = dmetro_set_tempo(tempo))) 
+        //         return error_handle(err);
         duart_write_once(tempo);
     }
     return 0;
