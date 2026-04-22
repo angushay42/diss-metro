@@ -35,5 +35,9 @@ typedef enum d_errors {
     ERROR_HANDLE_TIMEOUT
 } error_t;
 
+// helper functions
+extern void delay_ms(double ms);
+extern error_t error_handle(error_t err);
+
 
 #endif // INC_COMMON_DEFINES_H

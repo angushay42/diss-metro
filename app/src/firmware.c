@@ -19,7 +19,7 @@ static void delay_cycles(uint32_t delay_cycles) {
         __asm volatile ("NOP");
 }
 
-static void delay_ms(double ms) {
+extern void delay_ms(double ms) {
     size_t i, n;
 
     // 13 too slow?
@@ -28,7 +28,7 @@ static void delay_ms(double ms) {
 }
 
 // todo
-static error_t error_handle(error_t err) {
+extern error_t error_handle(error_t err) {
     // disable interrupts
     duart_teardown();
     dspi_teardown();
@@ -111,7 +111,7 @@ int main(void) {
     }
     if ((err = duart_setup())) {
         error_handle(err);
-        return err;
+    return err;
     }
     if ((err = dmetro_setup())) {
         error_handle(err);
@@ -122,18 +122,25 @@ int main(void) {
     timeout = 1 << 9;   // random
 
     while (1) {
-        if ((err = manual_tempo_change()))
-            return error_handle(err);
-
-
-        // delay_ms(1000);     // add some delay to polling
-        // if ((err = dmetro_get_tempo_reading(&tempo, timeout)))
+        // if ((err = manual_tempo_change()))
         //     return error_handle(err);
+
+
+        delay_ms(1000);     // add some delay to polling
+        if ((err = dmetro_get_tempo_reading(&tempo, timeout)))
+            return error_handle(err);
         
-        // if (dmetro_get_tempo() != tempo)
-        //     if ((err = dmetro_set_tempo(tempo))) 
-        //         return error_handle(err);
-        duart_write_once(tempo);
+        if (dmetro_get_tempo() != tempo)
+            if ((err = dmetro_set_tempo(tempo))) 
+                return error_handle(err);
+
+        duart_write_bytes("double");
+        duart_write_once((uint16_t) rcc_apb1_frequency);
+        duart_write_once((uint16_t) (rcc_apb1_frequency >> 16));
+        duart_write_bytes("double");
+        duart_write_once((uint16_t) rcc_apb2_frequency);
+        duart_write_once((uint16_t) (rcc_apb2_frequency >> 16));
+        
     }
     return 0;
 }

@@ -1,4 +1,5 @@
 #include "dmetronome.h"
+#include "duart.h"
 
 static uint32_t _psc;
 static uint16_t _bpm;
@@ -110,7 +111,7 @@ static error_t convert_to_psc(uint16_t bpm) {
         return DMETRO_INVALID_TEMPO;
 
     // input / output = psc
-    input = (double) rcc_apb1_frequency / (double) MAX_PSC;
+    input = (double) (rcc_apb1_frequency * 2) / (double) MAX_PSC;
     output = (double) bpm / 60.0;
     psc = roundf(input / output);
     temp = (uint32_t) psc;
@@ -122,9 +123,12 @@ static error_t convert_to_psc(uint16_t bpm) {
 
 /* Set bpm of metronome. Uses defined min and max bpm */
 extern error_t dmetro_set_tempo(uint16_t bpm) {
+    duart_write_bytes("set_tempo before check!\n");
     error_t err;
     if (bpm < MIN_BPM || bpm > MAX_BPM)
         return (err = DMETRO_INVALID_TEMPO);   // error
+    
+    duart_write_bytes("set_tempo after check!\n");
     
     if ((err = convert_to_psc(bpm)))
         return err;
@@ -152,6 +156,7 @@ extern error_t dmetro_setup(void) {
     rcc_periph_clock_enable(RCC_GPIOB);
     nvic_enable_irq(NVIC_TIM4_IRQ);
 
+    timer_disable_counter(TIM4);
     timer_set_mode(
         TIM4, 
         TIM_CR1_CKD_CK_INT_MUL_4,   
@@ -160,6 +165,8 @@ extern error_t dmetro_setup(void) {
     );
     
     // 84MHz / 65535 = 1.281KHz
+    // APB frequency is 42MHz, so it has broken over time.
+    // can't change the clock div, so it will be 84MHz...
     timer_set_prescaler(TIM4, MAX_PSC);
     
     // disabling preload means that the new period will be effective immediately
@@ -170,7 +177,6 @@ extern error_t dmetro_setup(void) {
     if ((err = dmetro_set_tempo(BPM_START)))
         return err; 
 
-    timer_enable_counter(TIM4);
     timer_enable_irq(TIM4, TIM_DIER_UIE);    // update on full count
 
     gpio_mode_setup(
@@ -180,13 +186,8 @@ extern error_t dmetro_setup(void) {
         METRONOME_CH1_PIN
     );
 
-    //todo remove
-    // rcc_periph_clock_enable(RCC_GPIOA);
-    // gpio_mode_setup(TEST_LED_PORT, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, TEST_LED_PIN);
-    // gpio_set(TEST_LED_PORT, TEST_LED_PIN);
+    timer_enable_counter(TIM4);
     return (err = dadc_setup());
-    
-    return OK;
 }
 
 extern error_t dmetro_teardown(void) {
@@ -199,10 +200,17 @@ extern error_t dmetro_teardown(void) {
 }
 
 extern void tim4_isr(void) {
-    
+    // duart_write_bytes("before isr check\n");
     // gpio_toggle(TEST_LED_PORT, TEST_LED_PIN);
     if (timer_get_flag(TIM4, TIM_SR_UIF)) {
-        gpio_toggle(METRONOME_CH1_PORT, METRONOME_CH1_PIN);
+        // duart_write_bytes("after isr check\n");
+
+        gpio_set(METRONOME_CH1_PORT, METRONOME_CH1_PIN);
+        delay_ms(100);
+        gpio_clear(METRONOME_CH1_PORT, METRONOME_CH1_PIN);
+
         timer_clear_flag(TIM4, TIM_SR_UIF);
+
+        // duart_write_bytes("after isr clear\n");
     }
 }

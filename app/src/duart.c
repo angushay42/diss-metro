@@ -24,14 +24,30 @@ void usart2_isr(void) {
     dring_buf_write(&_rb, usart_recv_blocking(UART));
 }
 
+
+extern error_t duart_write_bytes(char *data) {
+    // copy ptr
+    char *ptr = data;
+    while (*ptr) {
+        usart_send_blocking(UART, (uint8_t) *ptr);
+        usart_send_blocking(UART, (uint8_t) (*ptr >> 8));
+        ptr++;
+    }
+    return OK;
+
+}
+extern error_t duart_write_byte(char data) {
+    usart_send_blocking(UART, (uint8_t) data);
+    return OK;
+}
+
+
 /* sends an array over UAR with blocking */
 extern error_t duart_write_many(uint16_t *data) {
     // copy ptr
     uint16_t *ptr = data;
     while (*ptr) {
-        usart_send_blocking(UART, (uint8_t) *ptr);
-        usart_send_blocking(UART, (uint8_t) (*ptr >> 8));
-        ptr++;
+        usart_send_blocking(UART, (uint8_t) *ptr++);
     }
     return OK;
 }

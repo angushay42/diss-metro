@@ -17,6 +17,8 @@
 
 #define METRONOME_CH1_PORT  (GPIOB)
 #define METRONOME_CH1_PIN   (GPIO6)
+#define METRONOME_CH2_PORT  (GPIOB)
+#define METRONOME_CH2_PIN   (GPIO7)
 
 
 extern error_t dadc_setup(void);
