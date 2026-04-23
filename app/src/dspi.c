@@ -38,6 +38,7 @@ extern error_t dspi_teardown(void) {
     return OK;
 }
 
+// todo error
 /* store signed 13 bit integer into data. */
 extern void dspi_rcv(short *data) {
     uint16_t temp;

@@ -136,6 +136,11 @@ extern error_t dmetro_set_tempo(uint16_t bpm) {
 
     // does it need to be -1?
     timer_set_period(TIM4, _psc);
+    // force an update
+    if (timer_get_counter(TIM4) > _psc) {
+        // timer_generate_event(TIM4, TIM_CR2_MMS_UPDATE)
+        timer_set_counter(TIM4, 0);     // todo gives it a delay
+    }
     return OK;
 }
 
@@ -186,7 +191,9 @@ extern error_t dmetro_setup(void) {
         METRONOME_CH1_PIN
     );
 
+
     timer_enable_counter(TIM4);
+    // timer_update_on_overflow(TIM4);
     return (err = dadc_setup());
 }
 

@@ -118,29 +118,19 @@ int main(void) {
         return err;
     }
 
-    uint16_t tempo, timeout;
-    timeout = 1 << 9;   // random
+
+    short data;
 
     while (1) {
-        // if ((err = manual_tempo_change()))
+        // delay_ms(1000);     // add some delay to polling
+        // if ((err = dmetro_get_tempo_reading(&tempo, timeout)))
         //     return error_handle(err);
-
-
-        delay_ms(1000);     // add some delay to polling
-        if ((err = dmetro_get_tempo_reading(&tempo, timeout)))
-            return error_handle(err);
         
-        if (dmetro_get_tempo() != tempo)
-            if ((err = dmetro_set_tempo(tempo))) 
-                return error_handle(err);
-
-        duart_write_bytes("double");
-        duart_write_once((uint16_t) rcc_apb1_frequency);
-        duart_write_once((uint16_t) (rcc_apb1_frequency >> 16));
-        duart_write_bytes("double");
-        duart_write_once((uint16_t) rcc_apb2_frequency);
-        duart_write_once((uint16_t) (rcc_apb2_frequency >> 16));
-        
+        // if (dmetro_get_tempo() != tempo)
+        //     if ((err = dmetro_set_tempo(tempo))) 
+        //         return error_handle(err);
+        dspi_rcv(&data);
+        duart_write_once(data);
     }
     return 0;
 }
