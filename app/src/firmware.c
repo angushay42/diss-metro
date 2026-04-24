@@ -1,4 +1,3 @@
-// own defines
 #include "common-defines.h"
 #include "dependencies.h"
 #include "duart.h"
@@ -6,28 +5,26 @@
 #include "dspi.h"
 #include "dfft.h"
 
-#define ERROR_LED_PORT     (GPIOC) 
-#define ERROR_LED_PIN      (GPIO12)
+
+#include <libopencm3/cm3/systick.h>
+
+
+
 
 
 static void rcc_setup(void) {
     rcc_clock_setup_pll(&rcc_hsi_configs[RCC_CLOCK_3V3_84MHZ]);
 }
 
-static void delay_cycles(uint32_t delay_cycles) {
-    for (uint32_t i = 0; i < delay_cycles; i++)
-        __asm volatile ("NOP");
-}
-
 extern void delay_ms(double ms) {
     size_t i, n;
 
     // 13 too slow?
-    for (i = 0, n = (size_t) roundf(ms * CPU_FREQ / 1000 / 13); i < n; i++)
+    for (i = 0, n = (size_t) round(ms * CPU_FREQ / 1000 / 13); i < n; i++)
         __asm volatile ("NOP");
 }
 
-// todo
+
 extern error_t error_handle(error_t err) {
     // disable interrupts
     duart_teardown();
@@ -48,51 +45,64 @@ extern error_t error_handle(error_t err) {
     // should never reach
     return err;
 }
- 
 
-void minimal_adc_setup() {
-    rcc_periph_clock_enable(RCC_ADC1);
-    rcc_periph_clock_enable(RCC_GPIOA);
+/* time in ms */
+volatile uint64_t sys_time;
+uint32_t _resolution, _psc;
 
-    // analog or AF?
-    gpio_mode_setup(GPIOA, GPIO_MODE_ANALOG, GPIO_PUPD_NONE, GPIO0);
-
-    adc_power_off(ADC1);
-    adc_disable_external_trigger_regular(ADC1);
-    adc_set_right_aligned(ADC1);
-    adc_set_clk_prescale((uint32_t) 1);
-
-    adc_set_single_conversion_mode(ADC1);
-    adc_power_on(ADC1);     
-    // manually toggle it down        
-    adc_clear_flag(ADC1, ADC_SR_EOC);
-}
-
-error_t minimal_adc_read(uint32_t *data, uint32_t cycle_timeout) {
-    uint32_t i;
-    adc_set_regular_sequence(ADC1, 1, (uint8_t[]) {0});
-    adc_start_conversion_regular(ADC1);
-    for (i = 0; !(adc_eoc(ADC1)); i++)
-        if (i > cycle_timeout) {
-            *data = 1 << 14;
-            return DADC_TIMEOUT;
-        }
-
-    *data = adc_read_regular(ADC1);
-    return OK;
-}
+/* tick time in ms*/
+double scale_value;
 
 
-static error_t manual_tempo_change() {
-    size_t i;
-    error_t err;
+static uint32_t tick_count = 0;
 
-    for (i = MIN_BPM; i < MAX_BPM; i++) {
-        if ((err = dmetro_set_tempo((uint16_t) i)))
-            return err;
-        delay_ms(2000);
+void sys_tick_handler(void) {
+    sys_time += _resolution;
+
+    if (++tick_count >= 100) {
+        gpio_toggle(ERROR_LED_PORT, ERROR_LED_PIN);
+        tick_count = 0;
     }
+
+}
+
+/**
+ * 
+ * @param resolution in ms
+ */
+error_t sys_setup(uint32_t resolution) {
+    // systick should have 10.5MHz (84/8) 
+    double input, output;
+    uint32_t psc;
+
+    sys_time = 0;
+    if (sys_time)
+        return SYSTICK_INIT_ERROR;
+    // todo some check for res
+    _resolution = resolution;
+    input = 10500000.0;
+    output = 1 / ( (double) resolution / 1000.0);
+    scale_value = 1000.0 / input;   // in ms
+
+
+    psc = (uint32_t) round(input / output);
+    if (psc > ((1 << 25)- 1))
+        return SYSTICK_INVALID_RESOLUTION;
+    _psc = psc;
+    systick_set_clocksource(STK_CSR_CLKSOURCE_AHB_DIV8);
+    systick_set_reload(psc);
+    systick_interrupt_enable();
+    systick_counter_enable();
     return OK;
+}
+
+/* get time in ms*/
+static uint64_t get_time() {
+    uint64_t temp64 = 0;
+    // (reload - curr) = ticks counted
+    // 1 tick = 1/10.5mhz = 0.000000095238095 seconds
+    // temp64 = (uint64_t) round((double) (_psc - systick_get_value()) * scale_value);
+    return sys_time + temp64;
 }
 
 int main(void) {
@@ -102,8 +112,6 @@ int main(void) {
     rcc_periph_clock_enable(RCC_GPIOC);
     gpio_mode_setup(ERROR_LED_PORT, GPIO_MODE_OUTPUT, GPIO_PUPD_PULLDOWN, ERROR_LED_PIN);
     gpio_clear(ERROR_LED_PORT, ERROR_LED_PIN);
-
-    // minimal_adc_setup();
     
     if ((err = dspi_setup())) {
         error_handle(err);
@@ -118,19 +126,25 @@ int main(void) {
         return err;
     }
 
+    if ((err = sys_setup(10)))
+        return error_handle(err);
 
-    short data;
+    
+    // nvic_set_priority(NVIC_SYSTICK_IRQ, 1);
+    // nvic_set_priority(NVIC_TIM4_IRQ, 0);
+
+
+    // short data;
+
+    uint64_t data;
 
     while (1) {
-        // delay_ms(1000);     // add some delay to polling
-        // if ((err = dmetro_get_tempo_reading(&tempo, timeout)))
-        //     return error_handle(err);
-        
-        // if (dmetro_get_tempo() != tempo)
-        //     if ((err = dmetro_set_tempo(tempo))) 
-        //         return error_handle(err);
-        dspi_rcv(&data);
-        duart_write_once(data);
+        // dspi_rcv(&data);
+        // data = get_time();
+        // while (data) {
+        //     duart_write_once((uint16_t) data);
+        //     data >>= 16;
+        // }
     }
     return 0;
 }

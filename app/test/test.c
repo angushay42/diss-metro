@@ -230,10 +230,86 @@ extern error_t dmetro_get_tempo_reading(uint16_t *data, uint16_t cycle_timeout) 
 }
 /********************** end set tempo ***************/
 
+
+
+/************************************ sys time ********************************************************* */
+
+/* time in ms */
+volatile uint64_t sys_time;
+uint32_t _resolution, _sys_psc;
+
+/* tick time in ms*/
+double scale_value;
+
+void sys_tick_handler(void) {
+    uint64_t temp64 = sys_time;
+    sys_time = temp64 + _resolution;
+}
+
+
+/* resolution in ms */
+error_t sys_setup(uint32_t resolution) {
+    // systick should have 10.5MHz (84/8) 
+    double input, output;
+    uint32_t psc;
+
+    // todo some check for res
+    _resolution = resolution;
+    input = 10500000.0;
+    output = 1 / ( (double) resolution / 1000.0);
+    psc = (uint32_t) roundf(input / output);
+    if (psc > ((1 << 25)- 1))
+        return SYSTICK_INVALID_RESOLUTION;
+    _sys_psc = psc;
+    scale_value = 1000.0 / input;   // in ms
+
+    sys_time = 0;
+    return OK;
+}
+
+static uint32_t systick_get_value(void) {
+    return (uint32_t) 3000;
+}
+
+/* get time in ms*/
+static uint64_t get_time() {
+    uint64_t temp64 = 0;
+    // (reload - curr) = ticks counted
+    // 1 tick = 1/10.5mhz = 0.000000095238095 seconds
+    temp64 = (_psc - systick_get_value()) * scale_value;
+    return sys_time + temp64;
+}
+
+/************************************ end sys time ********************************************************* */
+
 // ----------------------- end copied -------------------------
 
 
 // ========================= test functions =========================
+
+int test_sys_time() {
+    //todo
+    error_t err;
+    uint64_t start, end, temp;
+
+
+    if ((err = sys_setup(1000)))
+        return 1;
+
+    if ((err = sys_setup(10)))
+        return 2;
+
+    start = get_time();
+    sys_tick_handler();
+    temp = get_time();
+    if (temp - start != 10)
+        return ;
+    
+
+    // printf("%u, %u, %f\n", _sys_psc, _resolution, scale_value);
+    printf("get_time: %llu\n", get_time());
+    return 0;
+}
 
 int test_error_handle() {
     int err;
@@ -563,14 +639,17 @@ int main(void) {
     // if (test_handle(&test_fft, "FFT"))
     //     return 1;
 
-    if ((err = test_handle(&test_tempo_conversion, "TEMPO CONVERSION")))
-        return err;
+    // if ((err = test_handle(&test_tempo_conversion, "TEMPO CONVERSION")))
+    //     return err;
     
     // if ((err =test_handle(&test_delay, "DELAY")))
     //     return err;
     
     // if ((err = test_handle(&test_error_handle, "ERROR HANDLE")))
     //     return err;
+
+    if ((err = test_handle(&test_sys_time, "SYS TIME")))
+        return err;
 
     print_line(30);
     printf("Ran %i test%s \n", test_count, (test_count > 1) ? "s": "");
