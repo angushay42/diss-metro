@@ -113,34 +113,48 @@ class UART:
 class BytesManager:
 
     @classmethod
-    def _convert_many(cls, data, size, signed):
+    def _convert_many(cls, data: list[int], size: int, signed: bool) -> bytearray:
+        if not data:
+            raise UARTException(f"Empty list.")
+        b = bytearray()
 
+        for d in data:
+            b += cls._convert_once(d, size, signed)
+        return b 
+
+    @classmethod
+    def _convert_once(cls, data: int, size: int, signed: bool) -> bytes:
+        try:
+            return data.to_bytes(size, byteorder='little', signed=signed)
+        except OverflowError as e:
+            if (data < 0) != signed:
+                raise UARTException(f"Inconsistent polarity for data {data}. Expected {"" if signed else "un"}signed.")
+            else:
+                raise UARTException(f"Incompatible size: {size} for data {data}.")
     
 
     @classmethod
-    def _convert_once(cls, data, size, signed):
-
-    
-
-    @classmethod
-    def convert_to_bytes(cls, data: int | list, size = 2, signed: bool = False) -> bytearray:
+    def convert_to_bytes(
+        cls, 
+        data: int | list, 
+        size = 2, 
+        signed: bool = False
+    ) -> bytearray | bytes:
         if not size in [1,2,4,8]:
             raise UARTException(f"Invalid data size: {size}. Must be [1,2,4,8].")
-    
-        if isinstance(data, list):
-            
-            raise UARTException(f"Empty list.")
-        
-        if isinstance(data, int):
-            signed = data < 0
 
-        b = bytearray()
-        try:
-            b += data.to_bytes(size, byteorder='little', signed=signed)
-        except OverflowError as e:
-            raise UARTException(f"Incompatible size: {size} for data {data}.")
-        return b
+        if isinstance(data, list):
+            return cls._convert_many(data, size, signed)
+            
+        if isinstance(data, int):
+            return cls._convert_once(data, size, data < 0)        
+        
+        raise UARTException(f"Invalid type for data: {type(data)}. Should be int or list.")
     
+    @classmethod
+    def generate_message(cls, data: list | int):
+        # todo find max of list and choose size?
+        
 
     @classmethod
     def get_size(cls, num: int) -> int:
@@ -174,7 +188,6 @@ class MockSerial:
     def write(self, b): # todo typing bytes-like
         n = self.io.write(b)
         return n
-
 
 
 def main():

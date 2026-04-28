@@ -45,28 +45,34 @@ class TestMockSerial(unittest.TestCase):
 class TestBytesManager(unittest.TestCase):
     manager: BytesManager = None
 
-    def test_convert_to_bytes(self):      
-        # test exceptions
-        ## invalid byte sizes
-        with self.assertRaises(UARTException):
-            self.manager.convert_to_bytes(1, 5)
-        with self.assertRaises(UARTException):
-            self.manager.convert_to_bytes(1, -1)
-        with self.assertRaises(UARTException):
-            self.manager.convert_to_bytes(1, 3)
+    def test_convert_many(self):
+        # exceptions 
 
-        ## incompatible byte sizes
+        ## empty list
         with self.assertRaises(UARTException):
-            data = int(0x6e4fa)
-            self.manager.convert_to_bytes(data, 1)
+            self.manager.convert_to_bytes([]) 
 
+        ## inconsistent sizes
         with self.assertRaises(UARTException):
-            data = -3930300002
-            self.manager.convert_to_bytes(data, 4)
+            self.manager.convert_to_bytes([1, 1 << 32])
 
-    
-        # test values
-        ## unsigned
+        ## mixed polarity
+        with self.assertRaises(UARTException) as e:
+            self.manager.convert_to_bytes([1, (1 << 16) - 1, -100, -(1 << 5)])
+
+        # values
+        data = [490, 2390, -2, 123, 96, 1900, 16000, -20000]
+        size = 4
+        signed = True
+        b = bytearray()
+        for d in data:
+            b += d.to_bytes(size, 'little', signed=signed)
+        
+        ans = self.manager.convert_to_bytes(data, size, signed)
+        self.assertEqual(ans, b)
+
+    def test_convert_once(self):
+        # unsigned
         data = int(0x6e4fa)
         size = 4
 
@@ -90,22 +96,29 @@ class TestBytesManager(unittest.TestCase):
         ans = data.to_bytes(4, 'little', signed=True)
         self.assertEqual(self.manager.convert_to_bytes(data, size), ans)
 
-        # test list of ints
-        ## exceptions 
-
-        ### empty list
+    def test_convert_to_bytes(self):      
+        # test exceptions
+        ## invalid byte sizes
         with self.assertRaises(UARTException):
-            self.manager.convert_to_bytes([]) 
-
-        ### inconsistent sizes
+            self.manager.convert_to_bytes(1, 5)
         with self.assertRaises(UARTException):
-            self.manager.convert_to_bytes([1, 1 << 32])
+            self.manager.convert_to_bytes(1, -1)
+        with self.assertRaises(UARTException):
+            self.manager.convert_to_bytes(1, 3)
 
+        ## incompatible byte sizes
+        with self.assertRaises(UARTException):
+            data = int(0x6e4fa)
+            self.manager.convert_to_bytes(data, 1)
 
+        with self.assertRaises(UARTException):
+            data = -3930300002
+            self.manager.convert_to_bytes(data, 4)
 
+        ## invalid input types
+        with self.assertRaises(UARTException):
+            self.manager.convert_to_bytes(1.20)
         
-
-
     def test_get_size(self):
         self.assertEqual(self.manager.get_size(4), 1)
 
@@ -122,7 +135,6 @@ class TestBytesManager(unittest.TestCase):
         super().setUpClass()
         cls.manager = BytesManager()
 
-
 class TestUART(unittest.TestCase):
     server: UART = None
 
@@ -130,8 +142,6 @@ class TestUART(unittest.TestCase):
         pass
 
     def test_recv(self):
-        """ recv will expect data to come from a serial port, how can we mock that?"""
-
         # empty buffer 
         with self.assertRaises(UARTException):
             self.server.recv()
@@ -161,7 +171,9 @@ class TestUART(unittest.TestCase):
         data = [2, 3, 4, 5, 90, 140, 57, 30]
         flag = 1 << UART.byte
 
-        self.server.stream.write(bytearray([flag, len(data)] + data))
+        # this is safe when the file is run as manager is always tested first.
+        self.server.stream.write(
+            BytesManager.convert_to_bytes(data))
         values, s = self.server.recv()
         
         # unsigned bytes can be converted to string
