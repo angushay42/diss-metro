@@ -43,6 +43,8 @@ class UART:
         
         self.manager = BytesManager()
 
+
+
     def validate_flag(self, flag: int) -> None | UARTException:
         """
         Raises UARTException if flag is invalid.
@@ -67,27 +69,20 @@ class UART:
         # write to port
         pass
 
-    def start_sequence(self, strict: bool = False):
-
-        started = False # wish python had a do while... 
-        for _ in range(3):
-            if not started:
-                b = self.stream.read(1)
-                started = True
-            else:
-                if b != self.stream.read(1):
-                    return 
-                
+    def get_flag(self, strict: bool = False) -> int:
+        """Wait until flag is fond, then return it."""
+        potential = {}
+        while True:
+            d = int.from_bytes(self.stream.read(), 'little')
+            if isinstance(self.validate_flag(d), UARTException):
+                continue
+            if not d in potential:
+                potential[d] = 0
+            potential[d] += 1
+            if potential[d] == 3:
+                break
         
-
-        flag = int.from_bytes(b, 'little', signed=False)
-        
-        # validate_flag and throw an exception
-        err = self.validate_flag(flag)
-        if err:
-            if strict:
-                raise err
-            return 
+        return d
 
     def recv(self, strict: bool=False) -> tuple[list[int], str | None] | None:
         # todo FLOATING POINT NUMBERS ??
@@ -96,6 +91,7 @@ class UART:
         # bug
         """Note: UART is unpredictable so we need to verify messages, not just expect perfect scenarios. """
 
+        flag = self.get_flag()
 
         b = self.stream.read(1)
         if not b:
@@ -108,10 +104,10 @@ class UART:
         
         # extract meta data from flags: Are bytes signed, how big are they?
         signed = bool((flag >> self.manager.signed) & 1)
-        size = flag & ((1 << self.manager.signed) - 1)
+        size = 1 << int(math.log2(flag & ((1 << self.manager.signed) - 1)))
 
         data = []
-        for i in range(len // size):
+        for i in range(len):
             # read size bytes
             b = self.stream.read(size)
             if not b:

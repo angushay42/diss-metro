@@ -135,8 +135,8 @@ int main(void) {
     
     while (1) {
         // dspi_rcv(&data);
-        // data = get_time();
-        data = 1029;
+        data = get_time();
+        // data = 1029;
         size = sizeof(data);
         duart_start_sequence(size);
         duart_write_byte((uint8_t) 1);
