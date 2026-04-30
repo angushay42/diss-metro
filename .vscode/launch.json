@@ -1,11 +1,37 @@
 {
   "configurations": [
-    
     {
-      "name": "Debug Application",
+      "name": "Server debugger",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/app/server/server.py",
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Test Program",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/app/test/test",
+      "args": [],
+      "stopAtEntry": false,
       "cwd": "${workspaceFolder}/app",
-      "executable": "./firmware.elf",
-      // "serverpath": "/usr/bin/JLinkGDBServer",
+      "environment": [],
+      "externalConsole": false,
+      "MIMode": "lldb",
+    },
+    {
+      "name": "Python Unit tests",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "unittest",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}/app/server",
+      "python": "${workspaceFolder}/app/server/env/bin/python"
+    },
+    {
+      "name": "Debug MCU",
+      "cwd": "${workspaceFolder}/app",
+      "executable": "${workspaceFolder}/app/bin/firmware.elf",
       "request": "launch",
       "servertype": "openocd",
       "type": "cortex-debug",
@@ -17,7 +43,11 @@
         "interface/stlink.cfg",
         "target/stm32f4x.cfg"
       ],
-      "searchDir": ["/opt/homebrew/share/openocd/scripts"],
-    }
+      "searchDir": [
+        "/opt/homebrew/share/openocd/scripts"
+      ],
+      "gdbPath": "/opt/homebrew/bin/arm-none-eabi-gdb",
+      "armToolchainPath": "/Applications/ArmGNUToolchain/15.2.rel1/arm-none-eabi",
+    },
   ]
 }

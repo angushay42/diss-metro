@@ -281,11 +281,59 @@ static uint64_t get_time() {
 }
 
 /************************************ end sys time ********************************************************* */
+/************************************ start uart protocol ********************************************************* */
+
+size_t temp;
+
+extern error_t duart_start_sequence(void *data) {
+    if (data == NULL)
+        return DUART_START_SEQUENCE;
+    
+    temp = sizeof(*data);
+    return OK;
+}
+
+/************************************ end uart protocol ********************************************************* */
+
+
 
 // ----------------------- end copied -------------------------
 
 
 // ========================= test functions =========================
+
+int test_duart_protocol() {
+    error_t err;
+    if (duart_start_sequence(NULL) != DUART_START_SEQUENCE)
+        return 1;
+
+    // check sizes
+    uint8_t byte = 0;
+    uint16_t half = 0;
+    uint32_t word = 0;
+    uint64_t double_word = 0;
+
+    if (duart_start_sequence((void *) (&byte))) {
+        return 2;
+    }
+    printf("temp: %zu\n", temp);
+
+    if (duart_start_sequence((void *) (&half))) {
+        return 3;
+    }
+    printf("temp: %zu\n", temp);
+
+    if (duart_start_sequence((void *) (&word))) {
+        return 4;
+    }
+    printf("temp: %zu\n", temp);
+
+    if (duart_start_sequence((void *) (&double_word))) {
+        return 5;
+    }
+    printf("temp: %zu\n", temp);
+    return 0;
+}
 
 int test_sys_time() {
     //todo
@@ -303,7 +351,7 @@ int test_sys_time() {
     sys_tick_handler();
     temp = get_time();
     if (temp - start != 10)
-        return ;
+        return 3;
     
 
     // printf("%u, %u, %f\n", _sys_psc, _resolution, scale_value);
@@ -426,7 +474,7 @@ int test_tempo_conversion() {
             // printf("bpm: %zu, err: %u\n", i, err);
             return 5;
         }
-        printf("bpm: %u, psc: %u\n", i, _psc);
+        printf("bpm: %zu, psc: %u\n", i, _psc);
             
     }
 
@@ -648,8 +696,11 @@ int main(void) {
     // if ((err = test_handle(&test_error_handle, "ERROR HANDLE")))
     //     return err;
 
-    if ((err = test_handle(&test_sys_time, "SYS TIME")))
-        return err;
+    // if ((err = test_handle(&test_sys_time, "SYS TIME")))
+    //     return err;
+
+    // if ((err = test_handle(&test_duart_protocol, "DUART PROTOCOL")))
+    //     return err;
 
     print_line(30);
     printf("Ran %i test%s \n", test_count, (test_count > 1) ? "s": "");

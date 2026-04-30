@@ -119,7 +119,7 @@ int main(void) {
     }
     if ((err = duart_setup())) {
         error_handle(err);
-    return err;
+        return err;
     }
     if ((err = dmetro_setup())) {
         error_handle(err);
@@ -129,22 +129,21 @@ int main(void) {
     if ((err = sys_setup(10)))
         return error_handle(err);
 
-    
-    // nvic_set_priority(NVIC_SYSTICK_IRQ, 1);
-    // nvic_set_priority(NVIC_TIM4_IRQ, 0);
-
-
-    // short data;
 
     uint64_t data;
-
+    size_t size, i;
+    
     while (1) {
         // dspi_rcv(&data);
         // data = get_time();
-        // while (data) {
-        //     duart_write_once((uint16_t) data);
-        //     data >>= 16;
-        // }
+        data = 1029;
+        size = sizeof(data);
+        duart_start_sequence(size);
+        duart_write_byte((uint8_t) 1);
+        for (i = 0; i < size; i++) {
+            duart_write_once((uint16_t) data);
+            data >>= 16;
+        }
     }
     return 0;
 }

@@ -123,12 +123,10 @@ static error_t convert_to_psc(uint16_t bpm) {
 
 /* Set bpm of metronome. Uses defined min and max bpm */
 extern error_t dmetro_set_tempo(uint16_t bpm) {
-    duart_write_bytes("set_tempo before check!\n");
     error_t err;
     if (bpm < MIN_BPM || bpm > MAX_BPM)
         return (err = DMETRO_INVALID_TEMPO);   // error
     
-    duart_write_bytes("set_tempo after check!\n");
     
     if ((err = convert_to_psc(bpm)))
         return err;

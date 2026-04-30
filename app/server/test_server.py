@@ -42,12 +42,12 @@ class TestMockSerial(unittest.TestCase):
         super().setUp()
         self.stream = MockSerial()
 
+#todo floats / doubles
 class TestBytesManager(unittest.TestCase):
     manager: BytesManager = None
 
     def test_convert_many(self):
         # exceptions 
-
         ## empty list
         with self.assertRaises(UARTException):
             self.manager.convert_to_bytes([]) 
@@ -148,8 +148,8 @@ class TestUART(unittest.TestCase):
         
         # invalid flag
         ## invalid bits
-        flag = 1 << (UART.signed + 1)
-        flag |= 1 << (UART.signed + 2)
+        flag = 1 << (BytesManager.signed + 1)
+        flag |= 1 << (BytesManager.signed + 2)
 
         with self.assertRaises(UARTException, msg=f"Invalid bits set."):
             self.server.stream.write(bytearray([flag, 1, 3]))
@@ -169,7 +169,7 @@ class TestUART(unittest.TestCase):
         # test data integrity
         ## single bytes
         data = [2, 3, 4, 5, 90, 140, 57, 30]
-        flag = 1 << UART.byte
+        flag = 1 << BytesManager.byte
 
         # this is safe when the file is run as manager is always tested first.
         self.server.stream.write(
@@ -182,12 +182,12 @@ class TestUART(unittest.TestCase):
 
         ## words (4 bytes)
         data = [32, 5454, 11010, 20202, 34040, 54400, (1 << 30) + 435]
-        flag = 1 << UART.word
+        flag = 1 << BytesManager.word
         
         # byte array only accepts 0-255, must be split up first.
         d_bytes = bytearray()
         for d in data:
-            d_bytes += d.to_bytes(1 << UART.word, 'little')
+            d_bytes += d.to_bytes(1 << BytesManager.word, 'little')
 
 
         self.server.stream.write(bytearray([flag, len(data)]) + d_bytes)
@@ -199,13 +199,13 @@ class TestUART(unittest.TestCase):
 
         ## double words (8 bytes)
         data = []
-        flag = 1 << UART.double
+        flag = 1 << BytesManager.double
         for _ in range(8):
             data.append(random.randint(1 << 32, (1 << 64) - 1))
 
         d_bytes = bytearray()
         for d in data:
-            d_bytes += d.to_bytes(1 << UART.double, 'little')
+            d_bytes += d.to_bytes(1 << BytesManager.double, 'little')
 
         self.server.stream.write(bytearray([flag, len(data)]) + d_bytes)
         values, s = self.server.recv()
@@ -214,12 +214,12 @@ class TestUART(unittest.TestCase):
         self.assertEqual(data, values)
 
         # BUG don't know how big floats are.
-        ## floats   #todo
+        # todo
+        ## floats
 
 
         # todo
         ## double floating point words (8 bytes)
-        data = [1.4322234, 103.3030, 100000.20 ,203030.39393, 0.991]
     
     @classmethod
     def setUpClass(cls):

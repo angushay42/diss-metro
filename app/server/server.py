@@ -21,15 +21,8 @@ class UART:
     stream: serial.Serial   = None
     manager: 'BytesManager' = None
 
-    byte        = 0
-    half        = 1
-    word        = 2
-    double      = 4
-    floating    = 5
-    signed      = 6
-
     def __init__(self, timeout: float, test: bool = False):
-        self.timeout = timeout
+        self.timeout = None if timeout <= 0 else timeout
         if test:
             return
         
@@ -44,12 +37,13 @@ class UART:
                 115200,
                 timeout=self.timeout
             )
+            self.stream.flush()
         except SerialException as e:
             raise UARTException(e)  # todo
         
         self.manager = BytesManager()
 
-    def validate_flag(self, flag: int) -> None:
+    def validate_flag(self, flag: int) -> None | UARTException:
         """
         Raises UARTException if flag is invalid.
         """
@@ -60,11 +54,12 @@ class UART:
             temp >>= 1
         # 1 or 2 bits are set
         if not (0 < num_bits <= 2):
-            raise UARTException(f"Invalid flag {bin(flag):8} with {num_bits} bits; should have 2.")
+            return UARTException(f"Invalid flag {bin(flag):8} with {num_bits} bits. Should have 2.")
         
-        if (flag >> (self.signed+1)) != 0:
-            raise UARTException(f"Invalid flag {bin(flag):8} with invalid bits {bin(flag >> self.signed):8}")
+        if (flag >> (self.manager.signed+1)) != 0:
+            return UARTException(f"Invalid flag {bin(flag):8} with invalid bits {bin(flag >> self.server.signed):8}")
         
+        return
 
     def send(self, data):
         # todo validate length is 0-255
@@ -72,45 +67,91 @@ class UART:
         # write to port
         pass
 
-    def recv(self) -> tuple[list[int], str | None]:
-        """Read flag unsigned byte (flag), length unsigned byte (n) and return n bytes (data) and string, if possible."""
+    def start_sequence(self, strict: bool = False):
 
-        # todo FLOATING POINT NUMBERS
-        b = self.stream.read(1)
-        if not b:
-            raise UARTException("Flag byte not found.")
+        started = False # wish python had a do while... 
+        for _ in range(3):
+            if not started:
+                b = self.stream.read(1)
+                started = True
+            else:
+                if b != self.stream.read(1):
+                    return 
+                
+        
+
         flag = int.from_bytes(b, 'little', signed=False)
         
-        # validate_flag may throw an exception
-        self.validate_flag(flag)
+        # validate_flag and throw an exception
+        err = self.validate_flag(flag)
+        if err:
+            if strict:
+                raise err
+            return 
+
+    def recv(self, strict: bool=False) -> tuple[list[int], str | None] | None:
+        # todo FLOATING POINT NUMBERS ??
+        """Read flag unsigned byte (flag), length unsigned byte (n) and return n bytes (data) and string, if possible."""
+
+        # bug
+        """Note: UART is unpredictable so we need to verify messages, not just expect perfect scenarios. """
+
 
         b = self.stream.read(1)
         if not b:
-            raise UARTException("Length byte not found.")
+            if strict:
+                raise UARTException("Length byte not found.")
+            else:
+                return 
         len = int.from_bytes(b, 'little', signed=False)
         
         
         # extract meta data from flags: Are bytes signed, how big are they?
-        signed = bool((flag >> self.signed) & 1)
-        size = flag & ((1 << self.signed) - 1)
+        signed = bool((flag >> self.manager.signed) & 1)
+        size = flag & ((1 << self.manager.signed) - 1)
 
         data = []
         for i in range(len // size):
             # read size bytes
             b = self.stream.read(size)
             if not b:
-                raise UARTException(f"Could not read byte {i} of {size} bytes.")
+                if strict:
+                    raise UARTException(f"Could not read byte {i} of {size} bytes.")
+                else:
+                    return 
             # format them as specified by flag
             data.append(int.from_bytes(b, 'little', signed=signed))
 
         # probably a character
-        if not signed and size == (1 << self.byte):
+        if not signed and size == (1 << self.manager.byte):
             s = "".join([chr(x) for x in data])
             return (data, s)
         
         return (data, None)
+    
+    def main(self, strict:bool=False):
+
+        try:
+            while True:
+                data = self.recv(strict)
+                if not data:
+                    continue
+                print(data[0])
+        except KeyboardInterrupt:
+            pass
+        self.shutdown()
+    
+    def shutdown(self):
+        self.stream.close()
+        print()
         
 class BytesManager:
+    byte        = 0
+    half        = 1
+    word        = 2
+    double      = 4
+    floating    = 5
+    signed      = 6
 
     @classmethod
     def _convert_many(cls, data: list[int], size: int, signed: bool) -> bytearray:
@@ -131,7 +172,6 @@ class BytesManager:
                 raise UARTException(f"Inconsistent polarity for data {data}. Expected {"" if signed else "un"}signed.")
             else:
                 raise UARTException(f"Incompatible size: {size} for data {data}.")
-    
 
     @classmethod
     def convert_to_bytes(
@@ -152,9 +192,29 @@ class BytesManager:
         raise UARTException(f"Invalid type for data: {type(data)}. Should be int or list.")
     
     @classmethod
-    def generate_message(cls, data: list | int):
-        # todo find max of list and choose size?
+    def generate_message(cls, data: list | int | float, size: int, signed: bool=False):
+        if type(data) not in [list, int, float]:
+            raise UARTException(f"Invalid type for data: {type(data)}. Should be int, float or list.")
         
+        b = bytearray()
+        
+        # create flag byte
+        flag = 1 << (size // 2)
+        flag |= (signed & 1) << cls.signed
+        flag |= (isinstance(data, float) & 1) << cls.floating
+
+        b += flag.to_bytes(1, 'little')
+
+        if isinstance(data, list):
+            # length byte        
+            try:
+                b += int.to_bytes(len(data), 'little')
+            except OverflowError:
+                raise UARTException(f"Data too large: {len(data)}. Must be between 0-255.")
+            return b + cls._convert_many(data, size, signed)
+        
+        b += int.to_bytes(1, 'little')
+        return b + cls._convert_once(data, size, signed)
 
     @classmethod
     def get_size(cls, num: int) -> int:
@@ -168,7 +228,6 @@ class BytesManager:
         if num > (1 << 8):
             return 2
         return 1
-
 
 class MockSerial:
     io: BytesIO
@@ -210,6 +269,13 @@ def main():
 
 if __name__ == "__main__":
     # todo
-    server = UART()
+    server = UART(0)
+    server.main()
+    # try:
+    #     while True:
+    #         print(int.from_bytes(server.stream.read(), 'little'))
+    # except KeyboardInterrupt:
+    #     pass
+    # server.shutdown()
 
     
