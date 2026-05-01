@@ -703,6 +703,46 @@ void print_bits(uint8_t b) {
     printf("\n");
 }
 
+struct packet {
+    size_t size;
+    error_t (*handler)(void*);
+};
+
+
+
+
+
+// error_t protocol(size_t size, bool is_signed, bool is_float, void *data) {
+//     uint8_t flag, len, start, stop;
+//     struct packet p = {
+//         .size = 1,
+//         .handler = print_bits,
+//     };
+
+//     switch (size) {
+//         case 1:
+//             /* code */
+//             p = 
+//         case 2:
+//             /* code */
+//             break;
+//         case 4:
+//             /* code */
+//             break;
+//         case 8:
+//             /* code */
+//             break;
+        
+//         default:
+//             return PROTOCOL_INVALID_SIZE;
+//     }
+//     // send start char  '{'
+//     // flag byte
+//     // len byte
+//     // data
+//     // send stop char   '}'
+// }
+
 /**************************** main ************************/
 int main(void) {
     int err;
@@ -731,14 +771,21 @@ int main(void) {
     // for (size_t i = 0; i < sizeof(double) * 8; i++)
     //     printf("%i\n", test & 1)
 
-    uint8_t temp, size, flag;
-    flag = (unsigned) 66;
-    temp = (1 << (fsigned - 1));
-    // printf("temp: %u ~temp: %u\n", temp, ~temp);
-    print_bits(temp);
-    print_bits(~temp);
-    print_bits(1);
-    print_bits(flag);
+    // uint8_t temp, size, flag;
+    // flag = (unsigned) 66;
+    // temp = (1 << (fsigned - 1));
+    // // printf("temp: %u ~temp: %u\n", temp, ~temp);
+    // print_bits(temp);
+    // print_bits(~temp);
+    // print_bits(1);
+    // print_bits(flag);
+
+    // testing void pointers for generic usage
+    // uint32_t test;
+    // void *p;
+    // p = &test;
+    // printf("deref: %u\n", *((uint32_t*)p));
+
 
     print_line(30);
     printf("Ran %i test%s \n", test_count, (test_count > 1) ? "s": "");

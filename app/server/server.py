@@ -8,6 +8,9 @@ import pathlib
 import os
 import sys
 import typing
+import struct
+
+struct.unpack()
 
 
 

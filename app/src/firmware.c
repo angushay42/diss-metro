@@ -8,6 +8,8 @@
 #include <libopencm3/cm3/systick.h>
 
 
+// todo float is 32 bits
+
 error_t sys_setup(uint32_t resolution);
 void sys_teardown(void);
 static error_t send_sample(void);
@@ -184,6 +186,7 @@ int main(void) {
         duart_start_sequence(1);
         duart_write_byte((uint8_t) 8);
         d = (~0) << fsigned;
+        d = sizeof(float);
         for (size_t i = 0; i < 8; i++) {
             duart_write_byte((uint8_t) d & 1);
             d >>= 1;
