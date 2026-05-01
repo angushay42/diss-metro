@@ -248,7 +248,6 @@ class MockSerial:
 def main():
     args = sys.argv[1:]
 
-
     # obj = {
     #     "time": {
     #         "start":    start,
@@ -264,14 +263,10 @@ def main():
 
 
 if __name__ == "__main__":
-    # todo
+    start = time.time()
     server = UART(0)
     server.main()
-    # try:
-    #     while True:
-    #         print(int.from_bytes(server.stream.read(), 'little'))
-    # except KeyboardInterrupt:
-    #     pass
-    # server.shutdown()
+    end = time.time()
+    print(end - start)
 
     

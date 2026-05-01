@@ -359,6 +359,15 @@ int test_sys_time() {
     return 0;
 }
 
+int test_average_samples() {
+    size_t i, n= 20;
+    uint16_t samples[n];
+    for (i = 0; i < n; i++)
+        samples[i] = i * 139;
+    
+    return 0;
+}
+
 int test_error_handle() {
     int err;
     long count;
@@ -701,6 +710,13 @@ int main(void) {
 
     // if ((err = test_handle(&test_duart_protocol, "DUART PROTOCOL")))
     //     return err;
+
+    double test;
+    test = 101.3202;
+    printf("%f, %llu\n", test, (uint64_t) test);
+    // for (size_t i = 0; i < sizeof(double) * 8; i++)
+    //     printf("%i\n", test & 1)
+
 
     print_line(30);
     printf("Ran %i test%s \n", test_count, (test_count > 1) ? "s": "");

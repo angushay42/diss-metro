@@ -59,7 +59,11 @@ extern void dspi_rcv(short *data) {
 /* convert 13bit adc integer to a usable word */
 static uint16_t convert_from_adc(uint16_t input) {
     uint16_t mask = (uint16_t) 15 << 12;
-    // if positive, set 4MSB to 0
+
+    // if 13th bit is set, adc thinks this is negative.
+    // so, if this bit is 0 set the 4msb to 0
+    // mask =   1111000000000000
+    // ~mask =  0000111111111111
     if (!((1 << 12) & input))
         return input & (~mask);
     else 

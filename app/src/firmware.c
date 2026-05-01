@@ -97,12 +97,26 @@ error_t sys_setup(uint32_t resolution) {
 }
 
 /* get time in ms*/
-static uint64_t get_time() {
+static uint64_t get_time(bool precise) {
     uint64_t temp64 = 0;
     // (reload - curr) = ticks counted
     // 1 tick = 1/10.5mhz = 0.000000095238095 seconds
-    // temp64 = (uint64_t) round((double) (_psc - systick_get_value()) * scale_value);
+    if (precise) 
+        temp64 = (uint64_t) round((double) (_psc - systick_get_value()) * scale_value);
     return sys_time + temp64;
+}
+
+static void send_sample() {
+    dspi_rcv(&data);
+    data = get_time(false);
+    // data = 1029;
+    size = sizeof(data);
+    duart_start_sequence(size);
+    duart_write_byte((uint8_t) 1);
+    for (i = 0; i < size; i++) {
+        duart_write_once((uint16_t) data);
+        data >>= 16;
+    }
 }
 
 int main(void) {
@@ -130,20 +144,12 @@ int main(void) {
         return error_handle(err);
 
 
-    uint64_t data;
+    uint64_t stamp;
+    uint16_t sample;
     size_t size, i;
     
     while (1) {
-        // dspi_rcv(&data);
-        data = get_time();
-        // data = 1029;
-        size = sizeof(data);
-        duart_start_sequence(size);
-        duart_write_byte((uint8_t) 1);
-        for (i = 0; i < size; i++) {
-            duart_write_once((uint16_t) data);
-            data >>= 16;
-        }
+        
     }
     return 0;
 }
