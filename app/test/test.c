@@ -689,6 +689,20 @@ int test_handle(int (*test_f)(), char *s) {
     return 0;
 }
 
+
+void print_bits(uint8_t b) {
+    uint8_t vals[8];
+    for (size_t i = 0; i < 8; i++) {
+        vals[i] = (b & 1);
+        b >>= 1;
+    }
+
+    for (size_t i = 8; i > 0; i--) {
+        printf("%u", vals[i-1]);
+    }
+    printf("\n");
+}
+
 /**************************** main ************************/
 int main(void) {
     int err;
@@ -711,12 +725,20 @@ int main(void) {
     // if ((err = test_handle(&test_duart_protocol, "DUART PROTOCOL")))
     //     return err;
 
-    double test;
-    test = 101.3202;
-    printf("%f, %llu\n", test, (uint64_t) test);
+    // double test;
+    // test = 101.3202;
+    // printf("%f, %llu\n", test, (uint64_t) test);
     // for (size_t i = 0; i < sizeof(double) * 8; i++)
     //     printf("%i\n", test & 1)
 
+    uint8_t temp, size, flag;
+    flag = (unsigned) 66;
+    temp = (1 << (fsigned - 1));
+    // printf("temp: %u ~temp: %u\n", temp, ~temp);
+    print_bits(temp);
+    print_bits(~temp);
+    print_bits(1);
+    print_bits(flag);
 
     print_line(30);
     printf("Ran %i test%s \n", test_count, (test_count > 1) ? "s": "");

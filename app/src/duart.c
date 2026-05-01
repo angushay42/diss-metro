@@ -70,11 +70,16 @@ extern error_t duart_write_many(uint16_t *data) {
     return OK;
 }
 
-extern error_t duart_start_sequence(size_t size) {
+extern error_t duart_start_sequence(uint8_t flag) {
+    // uint8_t temp1, temp2;
+    // temp1 = 1 << (fsigned -1);
+    // temp1 = ~temp1;
+    // temp2 = temp1 & flag;
+    // uint8_t size = ~(1 << (fsigned)-1) & flag;
+    uint8_t size = flag;
     if (size == 0 || size == 3 || (size > 4 && size < 8) || size > 8)
         return DUART_START_SEQUENCE;
     duart_enable();
-    uint8_t flag = 1 << (size / 2);
     for (size_t i = 0; i < 3; i++)
         duart_write_byte(flag);
     duart_disable();

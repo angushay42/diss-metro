@@ -42,6 +42,15 @@ typedef enum d_errors {
     DUART_TEST
 } error_t;
 
+enum d_flags {
+    fbyte,
+    fhalf,
+    fword,
+    fdouble = 4,
+    ffloating,
+    fsigned,
+} ;
+
 #ifndef TESTING
 // helper functions
 extern void delay_ms(double ms);

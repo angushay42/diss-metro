@@ -59,7 +59,7 @@ class UART:
             return UARTException(f"Invalid flag {bin(flag):8} with {num_bits} bits. Should have 2.")
         
         if (flag >> (self.manager.signed+1)) != 0:
-            return UARTException(f"Invalid flag {bin(flag):8} with invalid bits {bin(flag >> self.server.signed):8}")
+            return UARTException(f"Invalid flag {bin(flag):8} with invalid bits {bin(flag >> self.manager.signed):8}")
         
         return
 
@@ -74,6 +74,9 @@ class UART:
         potential = {}
         while True:
             d = int.from_bytes(self.stream.read(), 'little')
+            if d == ord('\n'):
+                potential = {}
+                continue
             if isinstance(self.validate_flag(d), UARTException):
                 continue
             if not d in potential:
@@ -104,7 +107,9 @@ class UART:
         
         # extract meta data from flags: Are bytes signed, how big are they?
         signed = bool((flag >> self.manager.signed) & 1)
-        size = 1 << int(math.log2(flag & ((1 << self.manager.signed) - 1)))
+        size = int(flag & ((1 << self.manager.signed) - 1))
+        if size == 1 << self.manager.double:
+            size = 8
 
         data = []
         for i in range(len):

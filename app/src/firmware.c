@@ -5,11 +5,12 @@
 #include "dspi.h"
 #include "dfft.h"
 
-
 #include <libopencm3/cm3/systick.h>
 
 
-
+error_t sys_setup(uint32_t resolution);
+void sys_teardown(void);
+static error_t send_sample(void);
 
 
 static void rcc_setup(void) {
@@ -30,6 +31,7 @@ extern error_t error_handle(error_t err) {
     duart_teardown();
     dspi_teardown();
     dmetro_teardown();
+    sys_teardown();
 
     
     // loop forever and toggle the ERROR LED with the code
@@ -96,6 +98,11 @@ error_t sys_setup(uint32_t resolution) {
     return OK;
 }
 
+void sys_teardown(void) {
+    systick_interrupt_disable();
+    systick_counter_disable();
+}
+
 /* get time in ms*/
 static uint64_t get_time(bool precise) {
     uint64_t temp64 = 0;
@@ -106,17 +113,43 @@ static uint64_t get_time(bool precise) {
     return sys_time + temp64;
 }
 
-static void send_sample() {
-    dspi_rcv(&data);
-    data = get_time(false);
-    // data = 1029;
-    size = sizeof(data);
-    duart_start_sequence(size);
-    duart_write_byte((uint8_t) 1);
+// todo void * to data, swap the corresponding types?
+// struct uart_message {
+    
+// };
+
+static error_t send_sample() {
+    error_t err;
+    uint64_t stamp;
+    short sample;
+    size_t size, i;
+    // get sample
+    dspi_rcv(&sample);
+    // get time
+    stamp = get_time(false);
+
+    // // start sequence
+    // size = sizeof(stamp); 
+    // duart_start_sequence(size);
+    // duart_write_byte((uint8_t) 1);
+    // for (i = 0; i < size; i++) {
+    //     duart_write_once((uint16_t) stamp);
+    //     stamp >>= 16;
+    // }
+    sample = -320;
+    delay_ms(1000);
+    size = sizeof(sample);
+    // size |= (1 << fsigned);   // samples are signed!
+    if ((err = duart_start_sequence(size | (1 << fsigned))))
+        return err;
+    if ((err = duart_write_byte((uint8_t) 1)))
+        return err;
     for (i = 0; i < size; i++) {
-        duart_write_once((uint16_t) data);
-        data >>= 16;
+        if ((duart_write_once((uint16_t) sample)))
+            return err;
+        sample >>= 16;
     }
+    return OK;
 }
 
 int main(void) {
@@ -142,14 +175,21 @@ int main(void) {
 
     if ((err = sys_setup(10)))
         return error_handle(err);
-
-
-    uint64_t stamp;
-    uint16_t sample;
-    size_t size, i;
     
     while (1) {
-        
+        // if ((err = send_sample()))
+        //     return error_handle(err);
+        size_t temp;
+        uint8_t d;
+        duart_start_sequence(1);
+        duart_write_byte((uint8_t) 8);
+        d = (~0) << fsigned;
+        for (size_t i = 0; i < 8; i++) {
+            duart_write_byte((uint8_t) d & 1);
+            d >>= 1;
+        }
+        duart_write_byte('\n');
+        // duart_write_byte(sizeof(short) | (1 << fsigned));
     }
     return 0;
 }

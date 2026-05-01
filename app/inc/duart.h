@@ -24,7 +24,7 @@
 extern error_t duart_setup(void);
 extern error_t duart_teardown(void);
 
-extern error_t duart_start_sequence(size_t size);
+extern error_t duart_start_sequence(uint8_t flag);
 extern error_t duart_write_bytes(char *data);
 extern error_t duart_write_byte(char data);
 extern error_t duart_write_many(uint16_t *data);
