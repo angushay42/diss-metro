@@ -7,11 +7,13 @@ int test_split();
 int test_bit_reversal(uint32_t test[], uint32_t res[], uint32_t size);
 int test_delay();
 int test_error_handle();
+int test_duart_protocol();
 
 // helpers
 void print_complex(char *s, complex_t x);
 void print_line(size_t len);
 void confirm_called(char *s);
+void print_bits(uint8_t b);
 
 // copied functions
 uint16_t bit_reverse(uint16_t x, uint32_t lg2n);
@@ -24,6 +26,8 @@ static uint16_t scale_to_bpm(uint16_t reading);
 static error_t convert_to_psc(uint16_t bpm);
 uint16_t adc_read_regular();
 extern error_t dmetro_get_tempo_reading(uint16_t *data, uint16_t cycle_timeout);
+void fake_usart_setup(void);
+void usart_print(void);
 // ---------------------- endprototypes ----------------------
 
 
@@ -43,6 +47,20 @@ void confirm_called(char *s) {
     printf("called: %s\n", s);
     print_line(40);
 }
+
+void print_bits(uint8_t b) {
+    uint8_t vals[8];
+    for (size_t i = 0; i < 8; i++) {
+        vals[i] = (b & 1);
+        b >>= 1;
+    }
+
+    for (size_t i = 8; i > 0; i--) {
+        printf("%u", vals[i-1]);
+    }
+    printf("\n");
+}
+
 // ---------------------- end helper ----------------------
 
 
@@ -283,13 +301,84 @@ static uint64_t get_time() {
 /************************************ end sys time ********************************************************* */
 /************************************ start uart protocol ********************************************************* */
 
-size_t temp;
+#define UART 1
+struct packet {
+    /* union means each member occupies the same memory space, so it can be accessed depending on how you use it */
+    union {
+        double *f; 
+        uint64_t *u;
+    };
+    size_t size;
+    size_t len;
+    bool is_signed;
+};
 
-extern error_t duart_start_sequence(void *data) {
-    if (data == NULL)
-        return DUART_START_SEQUENCE;
+extern error_t duart_send(struct packet *p);
+
+char output[64];
+/* points to next free slot */
+size_t idx = 0;
+
+/* fill fake output with 0s */
+void fake_usart_setup() {
+    for (size_t tempi = 0; tempi < 64; tempi++)
+        output[tempi] = -1;
+}
+
+
+void usart_send_blocking(uint32_t usart, uint16_t d) {
+    // fill output from right to left
+    for (size_t tempi = 0; tempi < 8; tempi++) {
+        output[(63 - idx)] = (d & 1) ? '1' : '0';
+        d >>= 1;
+        idx++;
+    }
+}
+
+void usart_print(void) {
+    for (size_t tempi = (63 - idx + 1); tempi < 64; tempi++) {
+        // printf("%c", (output[tempi] == 1) ? '0': '1');
+        printf("%c", output[tempi]);
+
+    }
+    idx = 0;   
+    printf("\n");
+}
+
+extern error_t duart_send(struct packet *p) {
+    if (p == NULL)
+        return DUART_SEND_NULL;
+    error_t err;
+    uint8_t flag;
+    uint64_t temp;
+
+    // send start char
+    usart_send_blocking(UART, (uint8_t) '{');
+    usart_print();
+
+    flag = (1 << ((*p).size / 2));
+    if ((*p).is_signed)
+        flag |= (1 << fsigned);
+
+    // send metadata in flag
+    usart_send_blocking(UART, (uint8_t) flag);
+    usart_print();
+
+    for (size_t i = 0; i < (*p).len; i++) {
+        temp = *((*p).u + i);
+        printf("%f\n", temp);
+        for (size_t j = 0; j < (*p).size; j++) {
+            usart_send_blocking(UART, (uint8_t) temp);
+            temp >>= 8;
+        }
+        usart_print();
+    }
     
-    temp = sizeof(*data);
+
+    // send stop char
+    usart_send_blocking(UART, (uint8_t) '}');
+    usart_print();
+
     return OK;
 }
 
@@ -304,34 +393,26 @@ extern error_t duart_start_sequence(void *data) {
 
 int test_duart_protocol() {
     error_t err;
-    if (duart_start_sequence(NULL) != DUART_START_SEQUENCE)
+    if (!(err = duart_send(NULL)))
         return 1;
 
-    // check sizes
-    uint8_t byte = 0;
-    uint16_t half = 0;
-    uint32_t word = 0;
-    uint64_t double_word = 0;
+    fake_usart_setup();
 
-    if (duart_start_sequence((void *) (&byte))) {
-        return 2;
-    }
-    printf("temp: %zu\n", temp);
+    size_t size, len;
+    double nums[] = {0.2239, 190.254, 29030.0, 56.28, 90.143};
+    
+    len = 5;
+    size = sizeof(nums[0]);
+    
+    struct packet test_packet = {
+        .size = size,
+        .len = len,
+        .f = nums,
+        .is_signed = false
+    };
 
-    if (duart_start_sequence((void *) (&half))) {
-        return 3;
-    }
-    printf("temp: %zu\n", temp);
-
-    if (duart_start_sequence((void *) (&word))) {
-        return 4;
-    }
-    printf("temp: %zu\n", temp);
-
-    if (duart_start_sequence((void *) (&double_word))) {
-        return 5;
-    }
-    printf("temp: %zu\n", temp);
+    // floats
+    duart_send(&test_packet);
     return 0;
 }
 
@@ -690,58 +771,6 @@ int test_handle(int (*test_f)(), char *s) {
 }
 
 
-void print_bits(uint8_t b) {
-    uint8_t vals[8];
-    for (size_t i = 0; i < 8; i++) {
-        vals[i] = (b & 1);
-        b >>= 1;
-    }
-
-    for (size_t i = 8; i > 0; i--) {
-        printf("%u", vals[i-1]);
-    }
-    printf("\n");
-}
-
-struct packet {
-    size_t size;
-    error_t (*handler)(void*);
-};
-
-
-
-
-
-// error_t protocol(size_t size, bool is_signed, bool is_float, void *data) {
-//     uint8_t flag, len, start, stop;
-//     struct packet p = {
-//         .size = 1,
-//         .handler = print_bits,
-//     };
-
-//     switch (size) {
-//         case 1:
-//             /* code */
-//             p = 
-//         case 2:
-//             /* code */
-//             break;
-//         case 4:
-//             /* code */
-//             break;
-//         case 8:
-//             /* code */
-//             break;
-        
-//         default:
-//             return PROTOCOL_INVALID_SIZE;
-//     }
-//     // send start char  '{'
-//     // flag byte
-//     // len byte
-//     // data
-//     // send stop char   '}'
-// }
 
 /**************************** main ************************/
 int main(void) {
@@ -762,29 +791,22 @@ int main(void) {
     // if ((err = test_handle(&test_sys_time, "SYS TIME")))
     //     return err;
 
-    // if ((err = test_handle(&test_duart_protocol, "DUART PROTOCOL")))
-    //     return err;
+    if ((err = test_handle(&test_duart_protocol, "DUART PROTOCOL")))
+        return err;
+    
+    // double test[] = {1.20, 292900.1};
 
-    // double test;
-    // test = 101.3202;
-    // printf("%f, %llu\n", test, (uint64_t) test);
-    // for (size_t i = 0; i < sizeof(double) * 8; i++)
-    //     printf("%i\n", test & 1)
+    // struct packet p = {
+    //     .f = &test,
+    //     .is_signed = false,
+    //     .size = sizeof(double),
+    //     .len = 1
+    // };
 
-    // uint8_t temp, size, flag;
-    // flag = (unsigned) 66;
-    // temp = (1 << (fsigned - 1));
-    // // printf("temp: %u ~temp: %u\n", temp, ~temp);
-    // print_bits(temp);
-    // print_bits(~temp);
-    // print_bits(1);
-    // print_bits(flag);
+    // struct packet *ptr = &p;
 
-    // testing void pointers for generic usage
-    // uint32_t test;
-    // void *p;
-    // p = &test;
-    // printf("deref: %u\n", *((uint32_t*)p));
+    // printf("%p : %p\n", (*ptr).u, (*ptr).u + 1);
+    // printf("%u : %u\n", *((*ptr).u), *((*ptr).u + 1));
 
 
     print_line(30);

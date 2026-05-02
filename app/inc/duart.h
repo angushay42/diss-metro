@@ -20,10 +20,25 @@
 #define UART_AF_MODE    (GPIO_AF7)
 #define UART_BAUD_RATE  (115200) // from Google
 
+// adapted from https://stackoverflow.com/a/44611722
+struct packet {
+    /* union means each member occupies the same memory space, so it can be accessed depending on how you use it */
+    union {
+        double *f; 
+        uint64_t *u;
+    };
+    size_t size;
+    size_t len;
+    bool is_signed;
+};
+
 
 extern error_t duart_setup(void);
 extern error_t duart_teardown(void);
 
+extern error_t duart_send(struct packet *p);
+
+/* archive? */
 extern error_t duart_start_sequence(uint8_t flag);
 extern error_t duart_write_bytes(char *data);
 extern error_t duart_write_byte(char data);

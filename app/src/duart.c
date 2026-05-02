@@ -6,6 +6,10 @@ static uint16_t _buffer[RING_BUF_MAX];
 static ring_buf_t _rb;
 uint8_t count = 0;
 
+// ///todo what do i need to do here????
+
+static void duart_enable(void);
+static void duart_disable(void);
 
 // UART sends LSB first
 
@@ -26,13 +30,44 @@ uint8_t count = 0;
 // }
 
 
-static void duart_enable(void) {
-    // USART2_CR1 |= USART_CR1_TE; 
+
+extern error_t duart_send(struct packet *p) {
+    if (p == NULL)
+        return DUART_SEND_NULL;
+    error_t err;
+    uint8_t flag;
+    uint64_t temp;
+
+    // send start char
+    usart_send_blocking(UART, (uint8_t) '{');
+    usart_print();
+
+    flag = (1 << ((*p).size / 2));
+    if ((*p).is_signed)
+        flag |= (1 << fsigned);
+
+    // send metadata in flag
+    usart_send_blocking(UART, (uint8_t) flag);
+    usart_print();
+
+    for (size_t i = 0; i < (*p).len; i++) {
+        temp = *((*p).u + i);
+        printf("%f\n", temp);
+        for (size_t j = 0; j < (*p).size; j++) {
+            usart_send_blocking(UART, (uint8_t) temp);
+            temp >>= 8;
+        }
+        usart_print();
+    }
+    
+    // send stop char
+    usart_send_blocking(UART, (uint8_t) '}');
+    usart_print();
+
+    return OK;
 }
 
-static void duart_disable(void) {
-    // USART2_CR1 &= ~USART_CR1_TE; // disable?
-}
+
 
 extern error_t duart_write_bytes(char *data) {
     duart_enable();
@@ -55,8 +90,8 @@ extern error_t duart_write_byte(char data) {
     return OK;
 }
 
-
-/* sends an array over UAR with blocking */
+/******************** Archived ********************/
+/* sends an array over UART with blocking */
 extern error_t duart_write_many(uint16_t *data) {
     duart_enable();
 
@@ -104,7 +139,17 @@ error_t duart_read(uint16_t *word) {
     error_t err = dring_buf_read(&_rb, word);
     return err;
 }
+/******************** endblock ********************/
 
+
+/***************************** util ***********************/
+static void duart_enable(void) {
+    // USART2_CR1 |= USART_CR1_TE; 
+}
+
+static void duart_disable(void) {
+    // USART2_CR1 &= ~USART_CR1_TE; // disable?
+}
 
 /* adapted from https://github.com/lowbyteproductions/bare-metal-series */
 error_t duart_setup(void) {
@@ -167,3 +212,4 @@ extern error_t duart_teardown(void) {
     rcc_periph_clock_disable(RCC_USART2);
     return OK;
 }
+/******************* endblock **********************/

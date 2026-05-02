@@ -39,7 +39,9 @@ typedef enum d_errors {
     SYSTICK_INVALID_RESOLUTION,
     SYSTICK_INIT_ERROR,
     DUART_START_SEQUENCE,
-    DUART_TEST
+    DUART_TEST,
+    DUART_SEND_NULL,
+    DUART_INVALID_SIZE
 } error_t;
 
 enum d_flags {
