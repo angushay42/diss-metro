@@ -6,10 +6,13 @@ static uint16_t _buffer[RING_BUF_MAX];
 static ring_buf_t _rb;
 uint8_t count = 0;
 
-// ///todo what do i need to do here????
 
 static void duart_enable(void);
 static void duart_disable(void);
+static error_t duart_send_8(struct packet *p);
+static error_t duart_send_16(struct packet *p);
+static error_t duart_send_32(struct packet *p);
+static error_t duart_send_64(struct packet *p);
 
 // UART sends LSB first
 
@@ -29,18 +32,64 @@ static void duart_disable(void);
 
 // }
 
+static error_t duart_send_8(struct packet *p) {
+    uint8_t temp;
+    for (size_t i = 0; i < (*p).len; i++) {
+        temp = *(uint8_t*)(*p).u + i;
+        for (size_t j = 0; j < (*p).size; j++) {
+            usart_send_blocking(UART, (uint8_t) temp);
+            temp >>= 8;
+        }
+    }
+    return OK;
+}
 
+static error_t duart_send_16(struct packet *p) {
+    uint16_t temp;
+    for (size_t i = 0; i < (*p).len; i++) {
+        temp = *(uint16_t*)(*p).u + i;
+        for (size_t j = 0; j < (*p).size; j++) {
+            usart_send_blocking(UART, (uint8_t) temp);
+            temp >>= 8;
+        }
+    }
+    return OK;
+}
 
+static error_t duart_send_32(struct packet *p) {
+    uint32_t temp;
+    for (size_t i = 0; i < (*p).len; i++) {
+        temp = *(uint32_t*)(*p).u + i;
+        for (size_t j = 0; j < (*p).size; j++) {
+            usart_send_blocking(UART, (uint8_t) temp);
+            temp >>= 8;
+        }
+    }
+    return OK;
+}
+
+static error_t duart_send_64(struct packet *p) {
+    uint64_t temp;
+    for (size_t i = 0; i < (*p).len; i++) {
+        temp = *(uint64_t*)(*p).u + i;
+        for (size_t j = 0; j < (*p).size; j++) {
+            usart_send_blocking(UART, (uint8_t) temp);
+            temp >>= 8;
+        }
+    }
+    return OK;
+}
+
+// todo wish this was general...
 extern error_t duart_send(struct packet *p) {
     if (p == NULL)
         return DUART_SEND_NULL;
+
     error_t err;
     uint8_t flag;
-    uint64_t temp;
 
     // send start char
     usart_send_blocking(UART, (uint8_t) '{');
-    usart_print();
 
     flag = (1 << ((*p).size / 2));
     if ((*p).is_signed)
@@ -48,26 +97,31 @@ extern error_t duart_send(struct packet *p) {
 
     // send metadata in flag
     usart_send_blocking(UART, (uint8_t) flag);
-    usart_print();
 
-    for (size_t i = 0; i < (*p).len; i++) {
-        temp = *((*p).u + i);
-        printf("%f\n", temp);
-        for (size_t j = 0; j < (*p).size; j++) {
-            usart_send_blocking(UART, (uint8_t) temp);
-            temp >>= 8;
-        }
-        usart_print();
+    switch ((*p).size) {
+        case 1:
+            duart_send_8(p);
+            break;
+        case 2:
+            duart_send_16(p);
+            break;
+        case 4:
+            duart_send_32(p);
+            break;
+        case 8:
+            duart_send_64(p);
+            break;
+        default:
+            return DUART_INVALID_SIZE;
     }
     
     // send stop char
     usart_send_blocking(UART, (uint8_t) '}');
-    usart_print();
 
     return OK;
 }
 
-
+/******************** Archived ********************/
 
 extern error_t duart_write_bytes(char *data) {
     duart_enable();
@@ -82,6 +136,7 @@ extern error_t duart_write_bytes(char *data) {
     return OK;
 
 }
+
 extern error_t duart_write_byte(char data) {
     duart_enable();
     usart_send_blocking(UART, (uint8_t) data);
@@ -90,7 +145,6 @@ extern error_t duart_write_byte(char data) {
     return OK;
 }
 
-/******************** Archived ********************/
 /* sends an array over UART with blocking */
 extern error_t duart_write_many(uint16_t *data) {
     duart_enable();

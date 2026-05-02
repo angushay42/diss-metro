@@ -25,7 +25,7 @@ struct packet {
     /* union means each member occupies the same memory space, so it can be accessed depending on how you use it */
     union {
         double *f; 
-        uint64_t *u;
+        void *u;
     };
     size_t size;
     size_t len;

@@ -306,7 +306,7 @@ struct packet {
     /* union means each member occupies the same memory space, so it can be accessed depending on how you use it */
     union {
         double *f; 
-        uint64_t *u;
+        void *u;
     };
     size_t size;
     size_t len;
@@ -365,7 +365,7 @@ extern error_t duart_send(struct packet *p) {
     usart_print();
 
     for (size_t i = 0; i < (*p).len; i++) {
-        temp = *((*p).u + i);
+        // temp = *((*p).u + i);
         printf("%f\n", temp);
         for (size_t j = 0; j < (*p).size; j++) {
             usart_send_blocking(UART, (uint8_t) temp);

@@ -91,47 +91,13 @@ class UART:
         return d
 
     def recv(self, strict: bool=False) -> tuple[list[int], str | None] | None:
-        # todo FLOATING POINT NUMBERS ??
-        """Read flag unsigned byte (flag), length unsigned byte (n) and return n bytes (data) and string, if possible."""
-
-        # bug
-        """Note: UART is unpredictable so we need to verify messages, not just expect perfect scenarios. """
-
-        flag = self.get_flag()
-
-        b = self.stream.read(1)
-        if not b:
-            if strict:
-                raise UARTException("Length byte not found.")
-            else:
-                return 
-        len = int.from_bytes(b, 'little', signed=False)
-        
-        
-        # extract meta data from flags: Are bytes signed, how big are they?
-        signed = bool((flag >> self.manager.signed) & 1)
-        size = int(flag & ((1 << self.manager.signed) - 1))
-        if size == 1 << self.manager.double:
-            size = 8
-
-        data = []
-        for i in range(len):
-            # read size bytes
-            b = self.stream.read(size)
-            if not b:
-                if strict:
-                    raise UARTException(f"Could not read byte {i} of {size} bytes.")
-                else:
-                    return 
-            # format them as specified by flag
-            data.append(int.from_bytes(b, 'little', signed=signed))
-
-        # probably a character
-        if not signed and size == (1 << self.manager.byte):
-            s = "".join([chr(x) for x in data])
-            return (data, s)
-        
-        return (data, None)
+        """"""
+        # mark all start bytes
+            # store upon finding one
+        # check for valid packets when stop byte is found
+            # if len byte matches length found 
+            # if flag matches etc
+        # flush buffer
     
     def main(self, strict:bool=False):
 

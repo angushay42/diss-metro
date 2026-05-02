@@ -178,21 +178,35 @@ int main(void) {
     if ((err = sys_setup(10)))
         return error_handle(err);
     
+    uint8_t max_size = 64;
+    uint64_t stamps[max_size];
+    short samples[max_size];
+
+    struct packet samples_pack = {
+        .is_signed = true,
+        .size = sizeof(short),
+        .len = 0,
+        .u = samples,
+    }, 
+    stamps_pack = {
+        .is_signed = false,
+        .size = sizeof(uint64_t),
+        .len = 0,
+        .u = stamps
+    };
+
+    size_t sample_idx, stamp_idx;
+    stamp_idx = sample_idx = 0;
+
+    /* just send one for now */
+    samples_pack.len = 1;
+    stamps_pack.len = 1;
+
     while (1) {
-        // if ((err = send_sample()))
-        //     return error_handle(err);
-        size_t temp;
-        uint8_t d;
-        duart_start_sequence(1);
-        duart_write_byte((uint8_t) 8);
-        d = (~0) << fsigned;
-        d = sizeof(float);
-        for (size_t i = 0; i < 8; i++) {
-            duart_write_byte((uint8_t) d & 1);
-            d >>= 1;
-        }
-        duart_write_byte('\n');
-        // duart_write_byte(sizeof(short) | (1 << fsigned));
+        dspi_rcv(samples);
+        duart_send(&samples_pack);
+        *stamps = get_time(false);
+        duart_send(&stamps_pack);
     }
     return 0;
 }
