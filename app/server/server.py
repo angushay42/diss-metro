@@ -1,17 +1,11 @@
 import serial
 from serial import SerialException
-from collections import defaultdict
 from io import BytesIO
-import math
 import time
 import pathlib  
 import os
 import sys
-import typing
-import struct
-
-struct.unpack()
-
+from collections import deque
 
 
 class UARTException(BaseException):
@@ -23,9 +17,12 @@ class UART:
     file_name = ""
     stream: serial.Serial   = None
     manager: 'BytesManager' = None
+    buffer: BytesIO         = None
 
     def __init__(self, timeout: float, test: bool = False):
         self.timeout = None if timeout <= 0 else timeout
+        self.manager = BytesManager()
+        self.buffer = BytesIO()
         if test:
             return
         
@@ -44,9 +41,7 @@ class UART:
         except SerialException as e:
             raise UARTException(e)  # todo
         
-        self.manager = BytesManager()
-
-
+        
 
     def validate_flag(self, flag: int) -> None | UARTException:
         """
@@ -90,15 +85,58 @@ class UART:
         
         return d
 
-    def recv(self, strict: bool=False) -> tuple[list[int], str | None] | None:
-        """"""
+    def detect_packet(self) -> bool:
         # mark all start bytes
             # store upon finding one
         # check for valid packets when stop byte is found
             # if len byte matches length found 
             # if flag matches etc
         # flush buffer
+        start_byte = self.manager.start.to_bytes(1, 'little')
+        stop_byte = self.manager.stop.to_bytes(1, 'little')
+
+        starts = deque()
+        while True:
+            # read from input stream
+            d = self.stream.read()
+            if d == start_byte:
+                # store in buffer and mark the start of a potential packet
+                self.buffer.write(d)
+                starts.append(self.buffer.tell() - 1)
+                continue
+            # if there's a potential packet, keep storing to buffer
+            if starts:
+                self.buffer.write(d)
+            # if we find a stop byte, check if there is a valid packet
+            if d == stop_byte:
+                # NOTE: this is the index of the last char, not length.
+                maybe_end = self.buffer.tell() - 1
+                # for each potential start
+                while starts:
+                    # check if distance is valid
+                    maybe_start = starts.popleft()
+                    total_len = abs(maybe_start - maybe_end)
+                    # packet sizes
+                    if not (BytesManager.packet_min <= total_len + 1 <= BytesManager.packet_max):
+                        continue
+                    # seek to start + 1 (pointing at flag byte)
+                    self.buffer.seek(1,maybe_start)
+
+                    flag = int.from_bytes(self.buffer.read(1), 'little')
+                    
+                    length = int.from_bytes(self.buffer.read(1), 'little')
+                    size = self.manager.get_size_from_flag(flag)
+                    if (size * length) != total_len - 4:
+                        continue
+
+                return True
     
+        
+        return False
+
+    def recv(self, strict: bool=False) -> tuple[list[int], str | None] | None:
+        """"""
+        
     def main(self, strict:bool=False):
 
         try:
@@ -123,6 +161,59 @@ class BytesManager:
     floating    = 5
     signed      = 6
 
+    packet_min:int = 5  # start|flag|len|data|stop. data in [1, 255]
+    packet_max:int = 5 + 254 
+
+    start: int  = ord('{')
+    stop: int   = ord('}')
+
+    @classmethod
+    def get_size_from_flag(cls, flag):
+        if 1 & (flag >> cls.double):
+            return 8
+        flag &= ~(3 << cls.signed)  # extract size
+        return flag
+
+    @classmethod
+    def validate_packet(
+        cls,
+        packet: bytes | bytearray
+    ) -> bool:
+        
+
+    @classmethod
+    def get_flag(
+        cls, 
+        size: int, 
+        is_signed: bool = False, 
+        is_float: bool= False) -> int:
+        if not size in [1,2,4,8]:
+            raise UARTException(f"Invalid size of {size}. Must be in [1,2,4,8].")
+        return (
+            (1 << (size // 2)) 
+            | ((is_signed & 1) << cls.signed)
+            | ((is_float & 1) << cls.floating)
+        )
+
+    @classmethod
+    def get_packet(
+        cls,
+        size: int,
+        data: list | int | float,
+        is_signed: bool = False,
+        is_float: bool = False
+    ) -> bytearray | bytes:
+        if not size in [1,2,4,8]:
+            raise UARTException(f"Invalid size of {size}. Must be in [1,2,4,8].")
+        lenb = 1 if not isinstance(data, list) else len(data)
+        b = bytearray(
+            # start     flag                                    
+            [cls.start, cls.get_flag(size, is_signed, is_float), lenb]
+        )
+        b += cls.convert_to_bytes(data, size, is_signed)
+        b += cls.stop.to_bytes(1, 'little')
+        return b
+        
     @classmethod
     def _convert_many(cls, data: list[int], size: int, signed: bool) -> bytearray:
         if not data:
@@ -202,17 +293,30 @@ class BytesManager:
 class MockSerial:
     io: BytesIO
     idx: int = 0    # absolute position to start of next read
+    pos: int = 0
     size: int
+    
 
-    def __init__(self):
+    def __init__(self, timeout: float= 0):
         # self.size = size  # todo
         self.io = BytesIO()
+        self.timeout = timeout
 
-    def read(self, n: int = 1) -> bytes | bytearray:
+    def read(self, n: int = 1) -> bytes | None:
         new = self.io.seek(self.idx)
-        data = self.io.read(n)
+        start = time.time()
+        while True:
+            if self.timeout != 0 and time.time() - start >= self.timeout:
+                return None
+            data = self.io.read(n)
+            if data:
+                break
         self.idx = self.io.tell()
         return data
+    
+
+
+
 
     def write(self, b): # todo typing bytes-like
         n = self.io.write(b)

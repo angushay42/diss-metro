@@ -5,26 +5,6 @@ import random
 from server import UART, UARTException, MockSerial, BytesManager
 
 
-"""
-the application will want to send integers of varying length, polarity and also strings. 
-
-so we need to tell the person what we are going to send, can we do that in 1 byte?
-
-we will send a byte 
-
-format:
-byte: bitmask of data to follow
-byte: length of data to follow      range is 0-255 then
-data: data
-"""
-"""
-Dependency Injection
-UART relies on serial connection, it depends on it existing
-At runtime, if it is testing, we should be able to swap out where it reads from 
-so that it uses a test buffer.
-
-"""
-
 class TestMockSerial(unittest.TestCase):
     def test_read(self):
         data = [12, 34, 89, 101]
@@ -34,7 +14,6 @@ class TestMockSerial(unittest.TestCase):
             ans.append(int.from_bytes(self.stream.read(1), 'little')) 
         self.assertEqual(data,ans)
 
-
     def test_write(self):
         pass
     
@@ -42,9 +21,55 @@ class TestMockSerial(unittest.TestCase):
         super().setUp()
         self.stream = MockSerial()
 
-#todo floats / doubles
+
 class TestBytesManager(unittest.TestCase):
     manager: BytesManager = None
+
+    def test_get_flag(self):
+        with self.assertRaises(UARTException):
+            self.manager.get_flag(0)
+        
+        with self.assertRaises(UARTException):
+            self.manager.get_flag(3)
+
+        with self.assertRaises(UARTException):
+            self.manager.get_flag(-100)
+
+        self.assertEqual(self.manager.get_flag(1), 1 << BytesManager.byte)
+        self.assertEqual(self.manager.get_flag(2), 1 << BytesManager.half)
+        self.assertEqual(self.manager.get_flag(4), 1 << BytesManager.word)
+        self.assertEqual(self.manager.get_flag(8), 1 << BytesManager.double)
+
+
+    def test_get_packet(self):
+        with self.assertRaises(UARTException):
+            self.manager.get_packet(0, 1)
+
+        self.assertEqual(
+            # 1 unsigned byte
+            bytearray(
+                # start    flag                    len d  stop
+                [ord('{'), 1 << BytesManager.byte, 1,  1, ord('}')]
+            ),
+            self.manager.get_packet(1, 1)
+        )
+
+        self.assertEqual(
+            # many unsigned bytes
+            bytearray([ord('{'), 1 << BytesManager.byte, 4, 1, 2, 3, 4, ord('}')]),
+            self.manager.get_packet(1, [1,2,3,4])
+        )
+
+        data = [1,2,3,4,5]
+        ans = bytearray([ord('{'), 1 << BytesManager.half, len(data)])
+        for d in data:
+            ans += d.to_bytes(2, 'little')  # half words
+        ans += ord('}').to_bytes(1, 'little')
+        self.assertEqual(
+            ans,
+            self.manager.get_packet(2, data)
+        )
+
 
     def test_convert_many(self):
         # exceptions 
@@ -138,88 +163,38 @@ class TestBytesManager(unittest.TestCase):
 class TestUART(unittest.TestCase):
     server: UART = None
 
-    def test_send(self):
-        pass
-
-    def test_recv(self):
-        # empty buffer 
-        with self.assertRaises(UARTException):
-            self.server.recv()
-        
-        # invalid flag
-        ## invalid bits
-        flag = 1 << (BytesManager.signed + 1)
-        flag |= 1 << (BytesManager.signed + 2)
-
-        with self.assertRaises(UARTException, msg=f"Invalid bits set."):
-            self.server.stream.write(bytearray([flag, 1, 3]))
-            self.server.recv()
-
-        ## bit count either 1 or 2.
-        input = [0, 1, 3]
-        with self.assertRaises(UARTException, msg=f"Invalid bit count with input: {input}"):
-            self.server.stream.write(bytearray())
-            self.server.recv()
-
-        input = [7, 1, 3]
-        with self.assertRaises(UARTException, msg=f"Invalid bit count with input: {input}"):
-            self.server.stream.write(bytearray(input))
-            self.server.recv()
-
-        # test data integrity
-        ## single bytes
-        data = [2, 3, 4, 5, 90, 140, 57, 30]
-        flag = 1 << BytesManager.byte
-
-        # this is safe when the file is run as manager is always tested first.
-        self.server.stream.write(
-            BytesManager.convert_to_bytes(data))
-        values, s = self.server.recv()
-        
-        # unsigned bytes can be converted to string
-        self.assertIsNotNone(s)
-        self.assertEqual(data, values)
-
-        ## words (4 bytes)
-        data = [32, 5454, 11010, 20202, 34040, 54400, (1 << 30) + 435]
-        flag = 1 << BytesManager.word
-        
-        # byte array only accepts 0-255, must be split up first.
-        d_bytes = bytearray()
-        for d in data:
-            d_bytes += d.to_bytes(1 << BytesManager.word, 'little')
-
-
-        self.server.stream.write(bytearray([flag, len(data)]) + d_bytes)
-        values, s = self.server.recv()
-
-        self.assertIsNone(s)
-        self.assertEqual(data, values)
-
-
-        ## double words (8 bytes)
-        data = []
-        flag = 1 << BytesManager.double
-        for _ in range(8):
-            data.append(random.randint(1 << 32, (1 << 64) - 1))
-
-        d_bytes = bytearray()
-        for d in data:
-            d_bytes += d.to_bytes(1 << BytesManager.double, 'little')
-
-        self.server.stream.write(bytearray([flag, len(data)]) + d_bytes)
-        values, s = self.server.recv()
-
-        self.assertIsNone(s)
-        self.assertEqual(data, values)
-
-        # BUG don't know how big floats are.
-        # todo
-        ## floats
-
+    def test_detect_packet(self):
+        # timeout #todo
+        # self.server = UART(5, True)
+        # self.server.stream = MockSerial()
+        # self.assertFalse(self.server.detect_packet())
 
         # todo
-        ## double floating point words (8 bytes)
+        # random bytes (no packet)
+
+        # todo
+        # random bytes (partial packet)
+
+        # only send the packet
+        packet = BytesManager.get_packet(2, [1,2,3,4,5])
+        print(packet)
+        self.server.stream.write(packet)
+        self.assertTrue(self.server.detect_packet())
+
+        # send random bytes in between
+        packet = BytesManager.get_packet(2, [1,2,3,4,5])
+
+        randidx = random.randint(0, 7)
+        for i in range(8):
+            if i == randidx:
+                self.server.send(packet)
+            else:
+                self.server.send(random.randint(0,255))
+
+        self.assertTrue(self.server.detect_packet())
+
+        # send random bytes (some are start/stop)
+
     
     @classmethod
     def setUpClass(cls):
