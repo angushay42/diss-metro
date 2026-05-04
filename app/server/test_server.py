@@ -40,6 +40,44 @@ class TestBytesManager(unittest.TestCase):
         self.assertEqual(self.manager.get_flag(4), 1 << BytesManager.word)
         self.assertEqual(self.manager.get_flag(8), 1 << BytesManager.double)
 
+    def test_validate_packet(self):
+        # malformed
+        ## just random
+        packet = bytearray([1,2,3,4,5,6])
+        self.assertFalse(self.manager.validate_packet(packet))
+        ## incorrect sizes
+
+        packet = bytearray([ord('{'), 1, *list(range(240)), ord('}')])
+        self.assertFalse(self.manager.validate_packet(packet))
+
+        ## missing flag
+        data = [1, 45, 2, 0]
+        packet = bytearray([ord('{'), len(data), *data, ord('}')])
+        self.assertFalse(self.manager.validate_packet(packet))
+
+        ## incorrect size
+        packet = bytearray([ord('{'), 1 << self.manager.double, len(data), *data, ord('}')])
+        self.assertFalse(self.manager.validate_packet(packet))
+
+        ## missing stop
+        packet = bytearray([ord('{'), 1 << self.manager.double, len(data), *data])
+        self.assertFalse(self.manager.validate_packet(packet))
+
+        # well formed
+        ## single bytes
+        data = [1,2,3,4]
+        packet = bytearray([ord('{'), 1 << self.manager.byte, len(data), *data, ord('}')])
+        self.assertTrue(self.manager.validate_packet(packet))
+
+        data = [1,2,3,4, 212, 39000, 10002, 405, 109]
+        size = 2
+        startb, stopb = bytes('{', encoding="ascii"), bytes('}', encoding="ascii")
+        packet = bytearray() + startb
+        packet += bytearray([1 << self.manager.half, len(data)])
+        for d in data:
+            packet += int.to_bytes(d, size, 'little')
+        packet += stopb
+
 
     def test_get_packet(self):
         with self.assertRaises(UARTException):
@@ -70,6 +108,8 @@ class TestBytesManager(unittest.TestCase):
             self.manager.get_packet(2, data)
         )
 
+    def test_get_packet_from_bytes(self):
+        self.manager.get_packet_from_bytes()
 
     def test_convert_many(self):
         # exceptions 
@@ -187,9 +227,9 @@ class TestUART(unittest.TestCase):
         randidx = random.randint(0, 7)
         for i in range(8):
             if i == randidx:
-                self.server.send(packet)
+                self.server.stream.write(packet)
             else:
-                self.server.send(random.randint(0,255))
+                self.server.stream.write(random.randint(0,255).to_bytes(1, 'little'))
 
         self.assertTrue(self.server.detect_packet())
 

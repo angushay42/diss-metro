@@ -65,6 +65,7 @@ class UART:
         # todo validate length is 0-255
         # convert data to format 
         # write to port
+        raise NotImplementedError
         pass
 
     def get_flag(self, strict: bool = False) -> int:
@@ -86,12 +87,6 @@ class UART:
         return d
 
     def detect_packet(self) -> bool:
-        # mark all start bytes
-            # store upon finding one
-        # check for valid packets when stop byte is found
-            # if len byte matches length found 
-            # if flag matches etc
-        # flush buffer
         start_byte = self.manager.start.to_bytes(1, 'little')
         stop_byte = self.manager.stop.to_bytes(1, 'little')
 
@@ -99,6 +94,8 @@ class UART:
         while True:
             # read from input stream
             d = self.stream.read()
+            if not d:   # todo mockserial
+                return False
             if d == start_byte:
                 # store in buffer and mark the start of a potential packet
                 self.buffer.write(d)
@@ -115,28 +112,22 @@ class UART:
                 while starts:
                     # check if distance is valid
                     maybe_start = starts.popleft()
-                    total_len = abs(maybe_start - maybe_end)
-                    # packet sizes
-                    if not (BytesManager.packet_min <= total_len + 1 <= BytesManager.packet_max):
-                        continue
-                    # seek to start + 1 (pointing at flag byte)
-                    self.buffer.seek(1,maybe_start)
-
-                    flag = int.from_bytes(self.buffer.read(1), 'little')
+                    if self.manager.validate_packet(self.buffer.getvalue()[maybe_start:maybe_end+1]):
+                        return True
+                break
                     
-                    length = int.from_bytes(self.buffer.read(1), 'little')
-                    size = self.manager.get_size_from_flag(flag)
-                    if (size * length) != total_len - 4:
-                        continue
-
-                return True
-    
         
         return False
 
     def recv(self, strict: bool=False) -> tuple[list[int], str | None] | None:
         """"""
-        
+        raise NotImplementedError
+    
+        if self.detect_packet():
+            packet = self.buffer.getvalue()
+            self.buffer.flush()
+            
+
     def main(self, strict:bool=False):
 
         try:
@@ -168,6 +159,10 @@ class BytesManager:
     stop: int   = ord('}')
 
     @classmethod
+    def get_packet_from_bytes(packet: bytearray | bytes):
+        raise NotImplementedError
+
+    @classmethod
     def get_size_from_flag(cls, flag):
         if 1 & (flag >> cls.double):
             return 8
@@ -179,7 +174,20 @@ class BytesManager:
         cls,
         packet: bytes | bytearray
     ) -> bool:
-        
+        if not packet or not (cls.packet_min <= len(packet) <= cls.packet_max):
+            return False
+        startb = packet[0]
+        stopb = packet[-1]
+        if startb != cls.start and stopb != cls.stop:
+            return False
+
+        flag = packet[1]    # should be safe as per Python Docs https://peps.python.org/pep-0358/#:~:text=A%20bytes%20object%20stores%20a%20mutable%20sequence%20of%20integers%20that%20are%20in%20the%20range%200%20to%20255.%20Unlike%20string%20objects%2C%20indexing%20a%20bytes%20object%20returns%20an%20integer.%20Assigning%20or%20comparing%20an%20object%20that%20is%20not%20an%20integer%20to%20an%20element%20causes%20a%20TypeError%20exception.
+        size = cls.get_size_from_flag(flag)
+        length = packet[2]
+        if len(packet) != (size * length) + 4:
+            return False
+
+        return True
 
     @classmethod
     def get_flag(
