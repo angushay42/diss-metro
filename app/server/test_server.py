@@ -78,6 +78,15 @@ class TestBytesManager(unittest.TestCase):
             packet += int.to_bytes(d, size, 'little')
         packet += stopb
 
+    def test_get_flag_info(self):
+        flag = 1 << self.manager.double
+        flag |= 1 << self.manager.floating
+
+        size, is_signed, is_float = self.manager.get_flag_info(flag)
+
+        self.assertEqual(size, 8)
+        self.assertEqual(is_signed, False)
+        self.assertEqual(is_float, True)
 
     def test_get_packet(self):
         with self.assertRaises(UARTException):
@@ -108,8 +117,23 @@ class TestBytesManager(unittest.TestCase):
             self.manager.get_packet(2, data)
         )
 
-    def test_get_packet_from_bytes(self):
-        self.manager.get_packet_from_bytes()
+    def test_get_packet_data(self):
+
+        packetb = bytearray([ord('{'), 1 << self.manager.byte, 1, 1, ord('}')])
+        data = self.manager.get_packet_data(packetb)
+        self.assertEqual(data, [1])
+
+        packetb = bytearray()
+        packetb += ord('{').to_bytes(1, 'little')
+
+        packetb += ((1 << self.manager.half) | (1 << self.manager.signed)).to_bytes(1, 'little')
+        data = [-390, -4900, 10000, 3430, 5401]
+        packetb += len(data).to_bytes(1, 'little')
+        for d in data:
+            packetb += d.to_bytes(2, 'little', signed=True)
+
+        packetb += ord('}').to_bytes(1, 'little')
+        self.assertEqual(data, self.manager.get_packet_data(packetb))
 
     def test_convert_many(self):
         # exceptions 
@@ -235,6 +259,13 @@ class TestUART(unittest.TestCase):
 
         # send random bytes (some are start/stop)
 
+    def test_recv(self):
+        data = [390202, 10101010, 3839840, 299910, 84040, 12, 2000]
+        packet = BytesManager.get_packet(4, data)
+        self.server.stream.write(packet)
+        ans, s = self.server.recv()
+        self.assertIsNone(s)    # too large to make a string
+        self.assertEqual(self.server.recv(), data)
     
     @classmethod
     def setUpClass(cls):
@@ -243,8 +274,6 @@ class TestUART(unittest.TestCase):
         cls.server = UART(5, True)
         cls.server.stream = MockSerial()
         
-
-
 if __name__ == "__main__":
     suite = unittest.suite.TestSuite()
 

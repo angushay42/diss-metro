@@ -120,12 +120,16 @@ class UART:
         return False
 
     def recv(self, strict: bool=False) -> tuple[list[int], str | None] | None:
-        """"""
-        raise NotImplementedError
-    
+        """"""  
+
+        s = None
         if self.detect_packet():
             packet = self.buffer.getvalue()
+            data = BytesManager.get_packet_data()
+            if self.manager.get_flag_info()[0] == 1:
+                s = "".join(chr(data))
             self.buffer.flush()
+            
             
 
     def main(self, strict:bool=False):
@@ -159,8 +163,31 @@ class BytesManager:
     stop: int   = ord('}')
 
     @classmethod
-    def get_packet_from_bytes(packet: bytearray | bytes):
-        raise NotImplementedError
+    def get_flag_info(cls, flag: int) -> tuple[int, bool, bool]:
+        """Returns size, signed, float."""
+        # todo no error checking...
+        size = flag & ~(3 << cls.signed)  # extract size
+        if 1 & (flag >> cls.double):
+            size = 8
+        is_signed, is_float = False, False
+        if 1 & (flag >> cls.floating):
+            is_float = True
+        if 1 & (flag >> cls.signed):
+            is_signed = True
+        return (size, is_signed, is_float)
+        
+    @classmethod
+    def get_packet_data(cls, packet: bytearray | bytes) -> list:
+        """Return the data part of a packet as a list."""
+        size, is_signed, is_float = cls.get_flag_info(packet[1])
+        if is_float:
+            raise NotImplementedError
+        n = packet[2]
+        data = packet[3:-1]
+        output = []
+        for i in range(0, n*size, size):
+            output.append(int.from_bytes(data[i: i + size], 'little', signed=is_signed))
+        return output
 
     @classmethod
     def get_size_from_flag(cls, flag):
