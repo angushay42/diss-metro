@@ -18,6 +18,7 @@ class UART:
     stream: serial.Serial   = None
     manager: 'BytesManager' = None
     buffer: BytesIO         = None
+    packet: bytearray       = None
 
     def __init__(self, timeout: float, test: bool = False):
         self.timeout = None if timeout <= 0 else timeout
@@ -87,6 +88,7 @@ class UART:
         return d
 
     def detect_packet(self) -> bool:
+        """Returns bool if packet was found. Packet is stored in the packet attribute of UART class."""
         start_byte = self.manager.start.to_bytes(1, 'little')
         stop_byte = self.manager.stop.to_bytes(1, 'little')
 
@@ -95,7 +97,7 @@ class UART:
             # read from input stream
             d = self.stream.read()
             if not d:   # todo mockserial
-                return False
+                break
             if d == start_byte:
                 # store in buffer and mark the start of a potential packet
                 self.buffer.write(d)
@@ -112,34 +114,34 @@ class UART:
                 while starts:
                     # check if distance is valid
                     maybe_start = starts.popleft()
-                    if self.manager.validate_packet(self.buffer.getvalue()[maybe_start:maybe_end+1]):
+                    packet = self.buffer.getvalue()[maybe_start:maybe_end+1]
+                    if self.manager.validate_packet(packet):
+                        self.packet = packet
                         return True
                 break
                     
-        
+        self.packet = None
         return False
 
     def recv(self, strict: bool=False) -> tuple[list[int], str | None] | None:
-        """"""  
-
+        """"""
+        # todo timeout
         s = None
         if self.detect_packet():
-            packet = self.buffer.getvalue()
-            data = BytesManager.get_packet_data()
-            if self.manager.get_flag_info()[0] == 1:
-                s = "".join(chr(data))
-            self.buffer.flush()
-            
+            data = BytesManager.get_packet_data(self.packet)
+            if self.manager.get_flag_info(self.packet[1])[0] == 1:
+                s = "".join(chr(c) for c in data)
+            return data, s
             
 
     def main(self, strict:bool=False):
 
         try:
             while True:
-                data = self.recv(strict)
+                data, s = self.recv(strict)
                 if not data:
                     continue
-                print(data[0])
+                print(data, s if s else "")
         except KeyboardInterrupt:
             pass
         self.shutdown()
@@ -330,7 +332,6 @@ class MockSerial:
     idx: int = 0    # absolute position to start of next read
     pos: int = 0
     size: int
-    
 
     def __init__(self, timeout: float= 0):
         # self.size = size  # todo
@@ -338,6 +339,7 @@ class MockSerial:
         self.timeout = timeout
 
     def read(self, n: int = 1) -> bytes | None:
+        """Read n bytes. If timeout is set, less characters may be returned."""
         new = self.io.seek(self.idx)
         start = time.time()
         while True:
@@ -348,8 +350,6 @@ class MockSerial:
                 break
         self.idx = self.io.tell()
         return data
-    
-
 
 
 

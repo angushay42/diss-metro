@@ -1,5 +1,6 @@
 import unittest
 import random
+import time
 
 # test obj
 from server import UART, UARTException, MockSerial, BytesManager
@@ -7,6 +8,11 @@ from server import UART, UARTException, MockSerial, BytesManager
 
 class TestMockSerial(unittest.TestCase):
     def test_read(self):
+        # test timeout
+        data = self.stream.read()
+        self.assertIsNone(data)
+
+
         data = [12, 34, 89, 101]
         self.stream.io.write(bytearray(data))
         ans = []
@@ -14,12 +20,25 @@ class TestMockSerial(unittest.TestCase):
             ans.append(int.from_bytes(self.stream.read(1), 'little')) 
         self.assertEqual(data,ans)
 
+        data = [102, 83, 48, 40, 201]
+        self.stream.io.write(bytearray(data))
+        ans = []
+        for i in range(len(data)):
+            ans.append(int.from_bytes(self.stream.read(1), 'little')) 
+        self.assertEqual(data,ans)
+
+
+
     def test_write(self):
+        data = [1,202, 50, 6]
+        self.stream.write(bytearray(data))
+        self.stream.io.seek(0)
+        self.assertEqual(self.stream.io.read(len(data)), bytearray(data))
         pass
     
     def setUp(self):
         super().setUp()
-        self.stream = MockSerial()
+        self.stream = MockSerial(5) # seconds
 
 
 class TestBytesManager(unittest.TestCase):
@@ -244,6 +263,7 @@ class TestUART(unittest.TestCase):
         print(packet)
         self.server.stream.write(packet)
         self.assertTrue(self.server.detect_packet())
+        self.assertIsNotNone(self.server.packet)
 
         # send random bytes in between
         packet = BytesManager.get_packet(2, [1,2,3,4,5])
@@ -256,7 +276,9 @@ class TestUART(unittest.TestCase):
                 self.server.stream.write(random.randint(0,255).to_bytes(1, 'little'))
 
         self.assertTrue(self.server.detect_packet())
+        self.assertIsNotNone(self.server.packet)
 
+        # todo
         # send random bytes (some are start/stop)
 
     def test_recv(self):
@@ -264,8 +286,8 @@ class TestUART(unittest.TestCase):
         packet = BytesManager.get_packet(4, data)
         self.server.stream.write(packet)
         ans, s = self.server.recv()
-        self.assertIsNone(s)    # too large to make a string
-        self.assertEqual(self.server.recv(), data)
+        self.assertIsNone(s)            # too large to make a string
+        self.assertEqual(ans, data)
     
     @classmethod
     def setUpClass(cls):
