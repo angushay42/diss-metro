@@ -28,6 +28,10 @@ uint16_t adc_read_regular();
 extern error_t dmetro_get_tempo_reading(uint16_t *data, uint16_t cycle_timeout);
 void fake_usart_setup(void);
 void usart_print(void);
+
+
+
+
 // ---------------------- endprototypes ----------------------
 
 
@@ -315,42 +319,93 @@ struct packet {
 
 extern error_t duart_send(struct packet *p);
 
-char output[64];
+#define OUTPUT_SIZE 64
+char output[OUTPUT_SIZE];
 /* points to next free slot */
 size_t idx = 0;
 
-/* fill fake output with 0s */
+/**
+ * Initialise fake variables. Idx should be 0, init all chars to be 0xff.
+ */
 void fake_usart_setup() {
     for (size_t tempi = 0; tempi < 64; tempi++)
-        output[tempi] = -1;
+        output[tempi] = 0xff;
 }
 
-
+/**** send one byte to fake output ****/
 void usart_send_blocking(uint32_t usart, uint16_t d) {
     // fill output from right to left
     for (size_t tempi = 0; tempi < 8; tempi++) {
-        output[(63 - idx)] = (d & 1) ? '1' : '0';
+        output[(OUTPUT_SIZE - 1 - idx)] = (d & 1) ? '1' : '0';
         d >>= 1;
         idx++;
     }
 }
 
 void usart_print(void) {
-    for (size_t tempi = (63 - idx + 1); tempi < 64; tempi++) {
+    for (size_t tempi = (OUTPUT_SIZE - idx); tempi < 64; tempi++) {
         // printf("%c", (output[tempi] == 1) ? '0': '1');
         printf("%c", output[tempi]);
 
     }
-    idx = 0;   
+    idx = 0;    
     printf("\n");
 }
 
+/** new method using the struct packet pointer */
+static error_t duart_send_8(struct packet *p) {
+    uint8_t temp;
+    for (size_t i = 0; i < (*p).len; i++) {
+        temp = *(uint8_t*)(*p).u + i;
+        usart_send_blocking(UART, (uint8_t) temp);
+    }
+    return OK;
+}
+
+static error_t duart_send_16(struct packet *p) {
+    uint16_t temp;
+    for (size_t i = 0; i < (*p).len; i++) {
+        temp = *(uint16_t*)(*p).u + i;
+        for (size_t j = 0; j < (*p).size; j++) {
+            usart_send_blocking(UART, (uint8_t) temp);
+            temp >>= 8;
+        }
+    }
+    return OK;
+}
+
+static error_t duart_send_32(struct packet *p) {
+    uint32_t temp;
+    for (size_t i = 0; i < (*p).len; i++) {
+        temp = *(uint32_t*)(*p).u + i;
+        for (size_t j = 0; j < (*p).size; j++) {
+            usart_send_blocking(UART, (uint8_t) temp);
+            temp >>= 8;
+        }
+    }
+    return OK;
+}
+
+static error_t duart_send_64(struct packet *p) {
+    uint64_t temp;
+    for (size_t i = 0; i < (*p).len; i++) {
+        temp = *(uint64_t*)(*p).u + i;
+        for (size_t j = 0; j < (*p).size; j++) {
+            usart_send_blocking(UART, (uint8_t) temp);
+            temp >>= 8;
+        }
+        usart_print();  // bug needed for testing as buffer is only 1 double in width.
+    }
+    return OK;
+}
+
+// todo wish this was more general...
 extern error_t duart_send(struct packet *p) {
     if (p == NULL)
         return DUART_SEND_NULL;
+
     error_t err;
     uint8_t flag;
-    uint64_t temp;
 
     // send start char
     usart_send_blocking(UART, (uint8_t) '{');
@@ -364,20 +419,36 @@ extern error_t duart_send(struct packet *p) {
     usart_send_blocking(UART, (uint8_t) flag);
     usart_print();
 
-    for (size_t i = 0; i < (*p).len; i++) {
-        // temp = *((*p).u + i);
-        printf("%f\n", temp);
-        for (size_t j = 0; j < (*p).size; j++) {
-            usart_send_blocking(UART, (uint8_t) temp);
-            temp >>= 8;
-        }
-        usart_print();
+
+    switch ((*p).size) {
+        case 1:
+        printf("1\n");
+            duart_send_8(p);
+            usart_print();
+            break;
+        case 2:
+            printf("2\n");
+            duart_send_16(p);
+            usart_print();
+            break;
+        case 4:
+            printf("4\n");
+            duart_send_32(p);
+            usart_print();
+            break;
+        case 8:
+            printf("8\n");
+            duart_send_64(p);
+            usart_print();
+            break;
+        default:
+            return DUART_INVALID_SIZE;
     }
     
-
     // send stop char
     usart_send_blocking(UART, (uint8_t) '}');
     usart_print();
+
 
     return OK;
 }
@@ -397,6 +468,34 @@ int test_duart_protocol() {
         return 1;
 
     fake_usart_setup();
+
+    /**** test fake setup ****/
+    bool test = true;
+    for (size_t i = 0; i < 64; i++)
+        test &= (output[i] == (char) 0xff);
+    if (test == false)
+        return 1;
+    if (idx != 0)
+        return 2;
+
+    /*** test fake send ****/
+    uint32_t test_usart;
+    uint16_t test_d;
+    test_usart = 1;
+    test_d = 80;
+    usart_send_blocking(test_usart, test_d);
+    test = true;
+    for (size_t i = 0; i < OUTPUT_SIZE; i ++) {
+        if (i < (OUTPUT_SIZE - 8)) {
+            test &= (output[i] == (char) 0xff);
+        }
+        else
+            test &= (output[i] == '1' || output[i] == '0');
+    }
+    if (test == false)
+        return 3;
+
+    idx = 0;
 
     size_t size, len;
     double nums[] = {0.2239, 190.254, 29030.0, 56.28, 90.143};

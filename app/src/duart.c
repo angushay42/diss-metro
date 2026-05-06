@@ -80,7 +80,7 @@ static error_t duart_send_64(struct packet *p) {
     return OK;
 }
 
-// todo wish this was general...
+// todo wish this was more general...
 extern error_t duart_send(struct packet *p) {
     if (p == NULL)
         return DUART_SEND_NULL;
