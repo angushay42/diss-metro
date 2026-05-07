@@ -6,6 +6,8 @@ import pathlib
 import os
 import sys
 from collections import deque
+import numpy as np
+import matplotlib.pyplot as plt
 
 
 class UARTException(BaseException):
@@ -126,24 +128,36 @@ class UART:
     def recv(self, strict: bool=False) -> tuple[list[int], str | None] | None:
         """"""
         # todo timeout
-        s = None
+        data, s = None, None
         if self.detect_packet():
             data = BytesManager.get_packet_data(self.packet)
             if self.manager.get_flag_info(self.packet[1])[0] == 1:
                 s = "".join(chr(c) for c in data)
-            return data, s
+        return data, s
             
+    def visualise(self, stamps, samples):
+        """Plot samples with their time stamps. """
+        x_plots = np.array(stamps)
+        y_plots = np.array(samples)
+        common = min(len(x_plots), len(y_plots))
+        plt.plot(x_plots[:common], y_plots[:common])
+        plt.show()
 
     def main(self, strict:bool=False):
-
+        stamps, samples = [], []
         try:
             while True:
                 data, s = self.recv(strict)
                 if not data:
                     continue
-                print(data, s if s else "")
+                if abs(data[0]) > (1 << 13 )// 2:
+                    stamps.append(data[0] / 1000)   # in s
+                else:
+                    samples.append(data[0])
+                print(data, s if s else "")                                                                                                                                                                                                                                                                 
         except KeyboardInterrupt:
             pass
+        self.visualise(stamps, samples)
         self.shutdown()
     
     def shutdown(self):
@@ -372,7 +386,6 @@ def main():
     # with open(file_name, "w") as f:
     #     json.dump(obj, f, indent=2)
     print("done!")
-
 
 
 if __name__ == "__main__":

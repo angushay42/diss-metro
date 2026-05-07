@@ -98,6 +98,9 @@ extern error_t duart_send(struct packet *p) {
     // send metadata in flag
     usart_send_blocking(UART, (uint8_t) flag);
 
+    // send length of data to come
+    usart_send_blocking(UART, (uint16_t) (*p).len);
+
     switch ((*p).size) {
         case 1:
             duart_send_8(p);
