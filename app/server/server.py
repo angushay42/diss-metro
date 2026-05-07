@@ -144,16 +144,17 @@ class UART:
         plt.show()
 
     def main(self, strict:bool=False):
-        stamps, samples = [], []
+
+        points = {} # each time stamp has a corresponding value
         try:
             while True:
                 data, s = self.recv(strict)
                 if not data:
                     continue
                 if abs(data[0]) > (1 << 13 )// 2:
-                    stamps.append(data[0] / 1000)   # in s
+                    stamp = data[0] / 1000 # in seconds
                 else:
-                    samples.append(data[0])
+                    sample = data[0]
                 print(data, s if s else "")                                                                                                                                                                                                                                                                 
         except KeyboardInterrupt:
             pass

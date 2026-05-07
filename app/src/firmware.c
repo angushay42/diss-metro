@@ -183,12 +183,14 @@ int main(void) {
     short samples[max_size];
 
     struct packet samples_pack = {
+        .id = "SAMPLE",
         .is_signed = true,
         .size = sizeof(short),
         .len = 0,
         .u = samples,
     }, 
     stamps_pack = {
+        .id = "STAMP",
         .is_signed = false,
         .size = sizeof(uint64_t),
         .len = 0,
@@ -204,9 +206,9 @@ int main(void) {
 
     while (1) {
         dspi_rcv(samples);
-        duart_send(&samples_pack);
+        duart_send_packet(&samples_pack);
         *stamps = get_time(false);
-        duart_send(&stamps_pack);
+        duart_send_packet(&stamps_pack);
     }
     return 0;
 }

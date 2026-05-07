@@ -9,28 +9,16 @@ uint8_t count = 0;
 
 static void duart_enable(void);
 static void duart_disable(void);
+static error_t duart_send(struct packet *p);
 static error_t duart_send_8(struct packet *p);
 static error_t duart_send_16(struct packet *p);
 static error_t duart_send_32(struct packet *p);
 static error_t duart_send_64(struct packet *p);
 
-// UART sends LSB first
-
-// ///todo what do i need to do here????
-// // todo receiving 16bit words
-// void usart2_isr(void) {
-
-//     // gpio_toggle(ERROR_LED_PORT, ERROR_LED_PIN);
-//     // todo receive interrupt
-//     if (usart_get_flag(UART, USART_SR_TXE)) {
-//         // flag is cleared by writing to the data register
-//         USART2_DR = 1;
-//     }
-//     else if (usart_get_flag, USART_CR1_RXNEIE) {
-
-//     }
-
-// }
+/** @TODO
+ * it could be beneficial to "flatten" data I want to send and then just cycle it out.
+ * i.e. each packet gets flattened to an identical format of bytes to be sent over uart?
+ */
 
 static error_t duart_send_8(struct packet *p) {
     uint8_t temp;
@@ -80,8 +68,41 @@ static error_t duart_send_64(struct packet *p) {
     return OK;
 }
 
+extern error_t duart_send_packet(struct packet *p) {
+    error_t err;
+    size_t n;
+
+    if ((*p).id == NULL)
+        return DUART_SEND_NULL;
+    
+    /** create packet for string identifier and send it */
+    /* get length of id */
+    for (n = 0; (*p).id[n]!= '\0'; n++)
+        ;
+    // todo
+    if (n > (size_t) 255)
+        return DUART_INVALID_SIZE;
+
+    
+    struct packet ch = {
+        .len = n,
+        .size = 1,
+        .is_signed = false,
+        .u = (*p).id,
+    };
+
+    // send id
+    if ((err = duart_send(&ch)))
+        return err;
+
+    // send data
+    if ((err = duart_send(p)))
+        return err;
+    return OK;
+}
+
 // todo wish this was more general...
-extern error_t duart_send(struct packet *p) {
+static error_t duart_send(struct packet *p) {
     if (p == NULL)
         return DUART_SEND_NULL;
 

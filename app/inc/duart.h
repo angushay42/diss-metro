@@ -22,6 +22,8 @@
 
 // adapted from https://stackoverflow.com/a/44611722
 struct packet {
+    /* string identifier */
+    char *id;
     /* union means each member occupies the same memory space, so it can be accessed depending on how you use it */
     union {
         double *f; 
@@ -36,7 +38,7 @@ struct packet {
 extern error_t duart_setup(void);
 extern error_t duart_teardown(void);
 
-extern error_t duart_send(struct packet *p);
+extern error_t duart_send_packet(struct packet *p);
 
 /* archive? */
 extern error_t duart_start_sequence(uint8_t flag);
