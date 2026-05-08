@@ -307,6 +307,7 @@ static uint64_t get_time() {
 
 #define UART 1
 struct packet {
+    char *id;
     /* union means each member occupies the same memory space, so it can be accessed depending on how you use it */
     union {
         double *f; 
@@ -453,6 +454,43 @@ extern error_t duart_send(struct packet *p) {
     return OK;
 }
 
+
+
+extern error_t duart_send_packet(struct packet *p) {
+    error_t err;
+    size_t n;
+
+    if ((*p).id == NULL)
+        return DUART_SEND_NULL;
+    
+    /** create packet for string identifier and send it */
+    /* get length of id */
+    for (n = 0; (*p).id[n]!= '\0'; n++)
+        ;
+    // todo
+    if (n > (size_t) 255)
+        return DUART_INVALID_SIZE;
+
+    
+    struct packet ch = {
+        .len = n,
+        .size = 1,
+        .is_signed = false,
+        .u = (*p).id,
+    };
+
+    // send id
+    if ((err = duart_send(&ch)))
+        return err;
+
+    // send data
+    if ((err = duart_send(p)))
+        return err;
+    return OK;
+}
+
+
+
 /************************************ end uart protocol ********************************************************* */
 
 
@@ -512,6 +550,19 @@ int test_duart_protocol() {
 
     // floats
     duart_send(&test_packet);
+
+    short samples[] = {-43, 590, 0, -390, 1010, 2};
+    size = sizeof(short);
+    len = 6;
+    // test protocol with string id
+    struct packet test_sample = {
+        .id = "SAMPLES",
+        .size = size,
+        .len = len,
+        .u = samples,
+        .is_signed = true
+    };
+    duart_send_packet(&test_sample);
     return 0;
 }
 
