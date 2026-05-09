@@ -21,21 +21,20 @@ static error_t duart_send_64(struct packet *p);
  */
 
 static error_t duart_send_8(struct packet *p) {
-    uint8_t temp;
+    uint8_t *ptr, temp;
+    ptr = (*p).u;
     for (size_t i = 0; i < (*p).len; i++) {
-        temp = *(uint8_t*)(*p).u + i;
-        for (size_t j = 0; j < (*p).size; j++) {
-            usart_send_blocking(UART, (uint8_t) temp);
-            temp >>= 8;
-        }
+        temp = *(ptr + i);
+        usart_send_blocking(UART, (uint8_t) temp);
     }
     return OK;
 }
 
 static error_t duart_send_16(struct packet *p) {
-    uint16_t temp;
+    uint16_t *ptr, temp;
+    ptr = (*p).u;
     for (size_t i = 0; i < (*p).len; i++) {
-        temp = *(uint16_t*)(*p).u + i;
+        temp = *(ptr + i);
         for (size_t j = 0; j < (*p).size; j++) {
             usart_send_blocking(UART, (uint8_t) temp);
             temp >>= 8;
@@ -45,9 +44,10 @@ static error_t duart_send_16(struct packet *p) {
 }
 
 static error_t duart_send_32(struct packet *p) {
-    uint32_t temp;
+    uint32_t *ptr, temp;
+    ptr = (*p).u;
     for (size_t i = 0; i < (*p).len; i++) {
-        temp = *(uint32_t*)(*p).u + i;
+        temp = *(ptr + i);
         for (size_t j = 0; j < (*p).size; j++) {
             usart_send_blocking(UART, (uint8_t) temp);
             temp >>= 8;
@@ -57,9 +57,10 @@ static error_t duart_send_32(struct packet *p) {
 }
 
 static error_t duart_send_64(struct packet *p) {
-    uint64_t temp;
+    uint64_t *ptr, temp;
+    ptr = (*p).u;
     for (size_t i = 0; i < (*p).len; i++) {
-        temp = *(uint64_t*)(*p).u + i;
+        temp = *(ptr + i);
         for (size_t j = 0; j < (*p).size; j++) {
             usart_send_blocking(UART, (uint8_t) temp);
             temp >>= 8;
@@ -77,7 +78,7 @@ extern error_t duart_send_packet(struct packet *p) {
     
     /** create packet for string identifier and send it */
     /* get length of id */
-    for (n = 0; (*p).id[n]!= '\0'; n++)
+    for (n = 0; (*p).id[n] != '\0'; n++)
         ;
     // todo
     if (n > (size_t) 255)

@@ -1,4 +1,5 @@
 import serial
+from collections import defaultdict
 from serial import SerialException
 from io import BytesIO
 import time
@@ -135,30 +136,31 @@ class UART:
                 s = "".join(chr(c) for c in data)
         return data, s
             
-    def visualise(self, stamps, samples):
+    def visualise(self, points: dict):
         """Plot samples with their time stamps. """
-        x_plots = np.array(stamps)
-        y_plots = np.array(samples)
+        x_plots = np.array(points["STAMP"])
+        y_plots = np.array(points["SAMPLE"])
         common = min(len(x_plots), len(y_plots))
         plt.plot(x_plots[:common], y_plots[:common])
         plt.show()
 
     def main(self, strict:bool=False):
 
-        points = {} # each time stamp has a corresponding value
+        points = defaultdict(list) # each time stamp has a corresponding value
         try:
+            last_str = ""
             while True:
                 data, s = self.recv(strict)
-                if not data:
+                if data is None and s is None:
                     continue
-                if abs(data[0]) > (1 << 13 )// 2:
-                    stamp = data[0] / 1000 # in seconds
-                else:
-                    sample = data[0]
+                if s is not None:
+                    last_str = s
+                    continue
+                points[last_str].append(data[0])
                 print(data, s if s else "")                                                                                                                                                                                                                                                                 
         except KeyboardInterrupt:
             pass
-        self.visualise(stamps, samples)
+        self.visualise(points)
         self.shutdown()
     
     def shutdown(self):
