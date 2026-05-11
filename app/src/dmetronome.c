@@ -64,6 +64,7 @@ extern error_t dadc_setup(void) {
     gpio_mode_setup(ADC_PORT, GPIO_MODE_ANALOG, GPIO_PUPD_NONE, TEMPO_PIN | VOLUME_PIN);
 
     adc_power_off(ADC1);
+    
     adc_disable_external_trigger_regular(ADC1);
     adc_set_right_aligned(ADC1);
     adc_set_clk_prescale((uint32_t) 1);
@@ -162,6 +163,7 @@ static error_t convert_to_psc(uint16_t bpm) {
 /* Set bpm of metronome. Uses defined min and max bpm */
 extern error_t dmetro_set_tempo(uint16_t bpm) {
     error_t err;
+    uint32_t counter, prev_period;
     if (bpm < MIN_BPM || bpm > MAX_BPM)
         return (err = DMETRO_INVALID_TEMPO);   // error
     
@@ -170,12 +172,13 @@ extern error_t dmetro_set_tempo(uint16_t bpm) {
         return err;
     _bpm = bpm;
 
+    prev_period = _psc;
     // does it need to be -1?
     timer_set_period(TIM4, _psc);
     // force an update
-    if (timer_get_counter(TIM4) > _psc) {
-        // timer_generate_event(TIM4, TIM_CR2_MMS_UPDATE)
-        timer_set_counter(TIM4, 0);     // todo gives it a delay
+    if ((counter = timer_get_counter(TIM4)) > _psc) {
+
+        timer_set_counter(TIM4, (uint32_t) (counter / prev_period * _psc));
     }
     return OK;
 }
