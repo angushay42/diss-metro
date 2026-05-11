@@ -20,8 +20,8 @@ static void rcc_setup(void) {
 extern void delay_ms(double ms) {
     size_t i, n;
 
-    // 13 too slow?
-    for (i = 0, n = (size_t) round(ms * CPU_FREQ / 1000 / 13); i < n; i++)
+    // 7 gives 99 ms 
+    for (i = 0, n = (size_t) round(ms * CPU_FREQ / 1000 / 7); i < n; i++)
         __asm volatile ("NOP");
 }
 
@@ -106,8 +106,11 @@ int main(void) {
 
     if ((err = sys_setup(10)))
         return error_handle(err);
-    
+    uint64_t last_poll, poll_period, now;
+    bool started = false;
+    uint16_t reading;
     uint8_t max_size = 64;
+    uint16_t tempo_copy;
     uint64_t stamps[max_size];
     short samples[max_size];
 
@@ -124,7 +127,26 @@ int main(void) {
         .size = sizeof(uint64_t),
         .len = 0,
         .u = stamps
+    }, 
+    tempo_pack = {
+        .id = "TEMPO",
+        .u = &tempo_copy,
+        .size = sizeof(tempo_copy),
+        .len = 1,
+        .is_signed = false,
+    },
+    reading_pack = {
+        .id = "READING",
+        .u = &reading,
+        .size = sizeof(reading),
+        .len = 1,
+        .is_signed = false
     };
+
+    nvic_set_priority(NVIC_TIM4_IRQ, 1);
+    nvic_set_priority(NVIC_SYSTICK_IRQ, 2);
+    
+    poll_period = 100;  // responsive enough?
 
     size_t sample_idx, stamp_idx;
     stamp_idx = sample_idx = 0;
@@ -133,17 +155,27 @@ int main(void) {
     samples_pack.len = 1;
     stamps_pack.len = 1;
 
-    uint16_t reading;
     while (1) {
-        dspi_rcv(samples);
-        duart_send_packet(&samples_pack);
-        *stamps = get_time(false);
-        duart_send_packet(&stamps_pack);
-        if ((err = dmetro_get_tempo_reading(&reading, 0)))
-            return error_handle(err);
-        if (reading != dmetro_get_tempo()) {
-            dmetro_set_tempo(reading);
-            dmetro_report_tempo();
+        
+        // dspi_rcv(samples);
+        // duart_send_packet(&samples_pack);
+        // *stamps = get_time(false);
+        now = get_time(false);
+        if (!started) {
+            last_poll = now;
+            started = true;
+        }
+        // duart_send_packet(&stamps_pack);
+        // if now - previous >= poll_period
+        if (now - last_poll >= poll_period) {
+            last_poll = now;
+            if ((err = dmetro_get_tempo_reading(&reading, 40))) 
+                return error_handle(err);
+            if (reading != (tempo_copy = dmetro_get_tempo())) {
+                dmetro_set_tempo(reading);
+                // duart_send_packet(&tempo_pack);
+                duart_send_packet(&reading_pack);
+            }
         }
     }
     return 0;

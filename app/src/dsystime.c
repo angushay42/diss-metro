@@ -15,7 +15,7 @@ void sys_tick_handler(void) {
     sys_time += _resolution;
 
     if (++tick_count >= 100) {
-        gpio_toggle(ERROR_LED_PORT, ERROR_LED_PIN);
+        // gpio_toggle(ERROR_LED_PORT, ERROR_LED_PIN);
         tick_count = 0;
     }
 

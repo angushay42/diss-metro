@@ -174,6 +174,11 @@ class UART:
                             sample = data2[0]
                         case "BEAT":
                             beats.append(data2[0])
+                        case "TEMPO":
+                            print(f"Tempo is {data2[0]} beats per minute")
+                        case "READING":
+                            print(f"reading is {data2[0]}")
+
                 if stamp and sample:
                     points.append((stamp, sample))
                     stamp, sample = None, None

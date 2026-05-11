@@ -41,7 +41,6 @@ extern error_t dadc_setup(void) {
 
 extern error_t dadc_teardown(void) {
     adc_power_off(ADC1);
-    //todo tear down interrupts if needed.
     rcc_periph_clock_disable(RCC_ADC1);
     return OK;
 }
