@@ -126,9 +126,11 @@ class UART:
         self.packet = None
         return False
 
-    def recv(self, strict: bool=False) -> tuple[list[int], str | None] | None:
+    def recv(self, strict: bool=False, with_id=True) -> tuple[list[int], str | None] | None:
         """"""
+        # bug why does data ever return as None?
         # todo timeout
+        # todo add n packets to read?
         data, s = None, None
         if self.detect_packet():
             data = BytesManager.get_packet_data(self.packet)
@@ -136,31 +138,48 @@ class UART:
                 s = "".join(chr(c) for c in data)
         return data, s
             
-    def visualise(self, points: dict):
+    def visualise(self, points: list[tuple], beats):
         """Plot samples with their time stamps. """
-        x_plots = np.array(points["STAMP"])
-        y_plots = np.array(points["SAMPLE"])
-        common = min(len(x_plots), len(y_plots))
-        plt.plot(x_plots[:common], y_plots[:common])
+        fig, ax = plt.subplots()
+
+        x_plots = np.array([x[0] for x in points])
+        y_plots = np.array([x[1] for x in points])
+        plt.plot(x_plots, y_plots)
+        # plt.vlines(x = beats, ymin=-4096, ymax=4095)
+        plt.ylim((-4096, 4095))
         plt.show()
 
     def main(self, strict:bool=False):
-
-        points = defaultdict(list) # each time stamp has a corresponding value
+        ## MCU sends sample, then stamp.
+        beats = []
+        points: list[tuple] = []
         try:
-            last_str = ""
+            stamp, sample = None, None
             while True:
                 data, s = self.recv(strict)
+                # wait until id is sent (s is not None)
                 if data is None and s is None:
                     continue
-                if s is not None:
-                    last_str = s
-                    continue
-                points[last_str].append(data[0])
-                print(data, s if s else "")                                                                                                                                                                                                                                                                 
+                if s:
+                    data2, s2 = self.recv(strict)
+                    if not data2:
+                        stamp, sample = None, None
+                        continue
+                    match s:
+                        case "STAMP":
+                            stamp = data2[0]
+                        
+                        case "SAMPLE":
+                            sample = data2[0]
+                        case "BEAT":
+                            beats.append(data2[0])
+                if stamp and sample:
+                    points.append((stamp, sample))
+                    stamp, sample = None, None
+                
         except KeyboardInterrupt:
             pass
-        self.visualise(points)
+        self.visualise(points, beats)
         self.shutdown()
     
     def shutdown(self):

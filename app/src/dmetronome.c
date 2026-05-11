@@ -1,5 +1,6 @@
 #include "dmetronome.h"
 #include "duart.h"
+#include "dsystime.h"
 
 static uint32_t _psc;
 static uint16_t _bpm;
@@ -204,12 +205,22 @@ extern error_t dmetro_teardown(void) {
     return OK;
 }
 
+struct packet beat = {
+    .id = "BEAT",
+    .is_signed = false,
+    .size = sizeof(uint64_t),
+    .len = 1
+};
+volatile uint64_t beat_stamp;
+
 extern void tim4_isr(void) {
     // duart_write_bytes("before isr check\n");
     // gpio_toggle(TEST_LED_PORT, TEST_LED_PIN);
     if (timer_get_flag(TIM4, TIM_SR_UIF)) {
         // duart_write_bytes("after isr check\n");
-
+        // beat_stamp = get_time(false);
+        // beat.u = &beat_stamp;
+        // duart_send_packet(&beat);
         gpio_set(METRONOME_CH1_PORT, METRONOME_CH1_PIN);
         delay_ms(100);
         gpio_clear(METRONOME_CH1_PORT, METRONOME_CH1_PIN);

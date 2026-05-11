@@ -78,6 +78,7 @@ OBJS		+= $(BLD_DIR)/dspi.o
 OBJS		+= $(BLD_DIR)/dringbuffer.o
 OBJS		+= $(BLD_DIR)/dfft.o
 OBJS		+= $(BLD_DIR)/ddetect.o
+OBJS		+= $(BLD_DIR)/dsystime.o
 
 
 # FreeRTOS source
