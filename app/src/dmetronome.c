@@ -39,12 +39,13 @@ void exti1_isr(void) {
         }
 
         if (now - last_toggle >= debounce_delay) {
+            last_toggle = now;
             duart_send_packet(&temp_pack);
             toggle = !toggle;
             if (toggle)
-            dmetro_start();
+                dmetro_start();
             else 
-            dmetro_stop();
+                dmetro_stop();
         }
     }
     // clear flag
