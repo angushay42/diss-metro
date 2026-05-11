@@ -1,6 +1,7 @@
 #include "dmetronome.h"
 #include "duart.h"
 #include "dsystime.h"
+#include <libopencm3/stm32/f4/exti.h>
 
 static uint32_t _psc;
 static uint16_t _bpm;
@@ -9,10 +10,46 @@ static uint16_t _bpm;
 #define TEMPO_PIN   (GPIO0)
 #define VOLUME_PIN  (GPIO1)
 
+#define START_STOP_PORT (GPIOC)
+#define START_STOP_PIN  (GPIO1)
+
+static uint16_t scale_to_bpm(uint16_t reading);
+
 static uint8_t tempo_group[] = {ADC_CHANNEL0};
 static uint8_t volume_group[] = {ADC_CHANNEL1};
 
-static uint16_t scale_to_bpm(uint16_t reading);
+uint32_t flag;
+bool toggle, started = false;
+struct packet temp_pack = {
+    .id = "ALERT",
+    .len = 1,
+    .size = sizeof(flag),
+    .u = &flag,
+    .is_signed = false
+};
+
+uint64_t last_toggle, debounce_delay = 100; 
+
+void exti1_isr(void) {
+    if ((flag = exti_get_flag_status(EXTI1))) {
+        uint64_t now = get_time(false);
+        if (!started) {
+            last_toggle = get_time(false);
+            started = true;
+        }
+
+        if (now - last_toggle >= debounce_delay) {
+            duart_send_packet(&temp_pack);
+            toggle = !toggle;
+            if (toggle)
+            dmetro_start();
+            else 
+            dmetro_stop();
+        }
+    }
+    // clear flag
+    exti_reset_request(EXTI1);
+}
 
 /**
  * Setup ADC1 to recieve two analog inputs:
@@ -154,6 +191,19 @@ extern void dmetro_stop(void) {
 
 extern error_t dmetro_setup(void) {
     error_t err;
+
+    /* play button setup */
+    // enable gpio
+    // enable irq and clock the peripheral
+    rcc_periph_clock_enable(RCC_GPIOC);
+    rcc_periph_clock_enable(RCC_SYSCFG);
+    
+    exti_set_trigger(EXTI1, EXTI_TRIGGER_FALLING);
+    exti_select_source(EXTI1, GPIOC);
+    exti_enable_request(EXTI1);
+    nvic_enable_irq(NVIC_EXTI1_IRQ);
+    gpio_mode_setup(START_STOP_PORT, GPIO_MODE_INPUT, GPIO_PUPD_PULLDOWN, START_STOP_PIN);
+
     //timer setup
     rcc_periph_clock_enable(RCC_TIM4);
     rcc_periph_clock_enable(RCC_GPIOB);

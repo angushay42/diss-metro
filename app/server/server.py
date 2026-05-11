@@ -177,7 +177,10 @@ class UART:
                         case "TEMPO":
                             print(f"Tempo is {data2[0]} beats per minute")
                         case "READING":
-                            print(f"reading is {data2[0]}")
+                            # print(f"reading is {data2[0]}")
+                            pass
+                        case "ALERT":
+                            print(f"Alert found with flag: {data2[0]}")
 
                 if stamp and sample:
                     points.append((stamp, sample))
