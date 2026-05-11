@@ -218,9 +218,9 @@ extern void tim4_isr(void) {
     // gpio_toggle(TEST_LED_PORT, TEST_LED_PIN);
     if (timer_get_flag(TIM4, TIM_SR_UIF)) {
         // duart_write_bytes("after isr check\n");
-        // beat_stamp = get_time(false);
-        // beat.u = &beat_stamp;
-        // duart_send_packet(&beat);
+        beat_stamp = get_time(false);
+        beat.u = &beat_stamp;
+        duart_send_packet(&beat);
         gpio_set(METRONOME_CH1_PORT, METRONOME_CH1_PIN);
         delay_ms(100);
         gpio_clear(METRONOME_CH1_PORT, METRONOME_CH1_PIN);

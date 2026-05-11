@@ -1,4 +1,5 @@
 import serial
+import json 
 from collections import defaultdict
 from serial import SerialException
 from io import BytesIO
@@ -145,7 +146,7 @@ class UART:
         x_plots = np.array([x[0] for x in points])
         y_plots = np.array([x[1] for x in points])
         plt.plot(x_plots, y_plots)
-        # plt.vlines(x = beats, ymin=-4096, ymax=4095)
+        plt.vlines(x = beats, ymin=-4096, ymax=4095, colors='r')
         plt.ylim((-4096, 4095))
         plt.show()
 
@@ -180,6 +181,8 @@ class UART:
         except KeyboardInterrupt:
             pass
         self.visualise(points, beats)
+        with open("test.json", "w") as f:
+            f.write(json.dumps(points, indent=2))
         self.shutdown()
     
     def shutdown(self):
