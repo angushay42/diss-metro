@@ -78,7 +78,7 @@ extern error_t dmetro_get_tempo_reading(uint16_t *data, uint16_t cycle_timeout) 
     adc_set_regular_sequence(ADC1, 1, tempo_group);
     adc_start_conversion_regular(ADC1);
     for (i = 0; !(adc_eoc(ADC1)); i++)
-        if (i > cycle_timeout) {
+        if (cycle_timeout > 0 && i > cycle_timeout) {
             *data = 1 << 14;
             return DADC_TIMEOUT;
         }

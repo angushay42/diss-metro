@@ -133,11 +133,18 @@ int main(void) {
     samples_pack.len = 1;
     stamps_pack.len = 1;
 
+    uint16_t reading;
     while (1) {
         dspi_rcv(samples);
         duart_send_packet(&samples_pack);
         *stamps = get_time(false);
         duart_send_packet(&stamps_pack);
+        if ((err = dmetro_get_tempo_reading(&reading, 0)))
+            return error_handle(err);
+        if (reading != dmetro_get_tempo()) {
+            dmetro_set_tempo(reading);
+            dmetro_report_tempo();
+        }
     }
     return 0;
 }
