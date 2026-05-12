@@ -247,28 +247,19 @@ extern error_t dmetro_teardown(void) {
     return OK;
 }
 
-struct packet beat = {
-    .id = "BEAT",
-    .is_signed = false,
-    .size = sizeof(uint64_t),
-    .len = 1
-};
+/* most recent beat timestamp in ms */
 volatile uint64_t beat_stamp;
 
+/* this is the pulse of the metronome*/
 extern void tim4_isr(void) {
-    // duart_write_bytes("before isr check\n");
-    // gpio_toggle(TEST_LED_PORT, TEST_LED_PIN);
     if (timer_get_flag(TIM4, TIM_SR_UIF)) {
-        // duart_write_bytes("after isr check\n");
-        beat_stamp = get_time(false);
-        beat.u = &beat_stamp;
-        duart_send_packet(&beat);
+        beat_stamp = get_time(true);    // todo how much extra compute time does precise add?
+
         gpio_set(METRONOME_CH1_PORT, METRONOME_CH1_PIN);
         delay_ms(100);
         gpio_clear(METRONOME_CH1_PORT, METRONOME_CH1_PIN);
 
+        /* make sure to clear flag once done */
         timer_clear_flag(TIM4, TIM_SR_UIF);
-
-        // duart_write_bytes("after isr clear\n");
     }
 }

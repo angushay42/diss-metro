@@ -34,4 +34,6 @@ extern uint16_t dmetro_get_tempo(void);
 extern void dmetro_start(void);
 extern void dmetro_stop(void);
 
+extern volatile uint64_t beat_stamp;
+
 #endif  // DMETRONOME_H
