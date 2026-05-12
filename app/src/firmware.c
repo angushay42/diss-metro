@@ -5,6 +5,7 @@
 #include "dspi.h"
 #include "dfft.h"
 #include "dsystime.h"
+#include "ddetect.h"
 
 static void rcc_setup(void) {
     rcc_clock_setup_pll(&rcc_hsi_configs[RCC_CLOCK_3V3_84MHZ]);
@@ -66,9 +67,14 @@ int main(void) {
     if ((err = sys_setup(10)))
         return error_handle(err);
     
-    uint8_t max_size = 64;
-    uint64_t stamps[max_size];
+    nvic_set_priority(NVIC_TIM4_IRQ, 1);
+    nvic_set_priority(NVIC_SYSTICK_IRQ, 2);
+    
+    size_t sample_idx, stamp_idx, sample_size, max_size;
+    max_size = 64;
+    uint64_t stamps[max_size], now, note_stamp;
     short samples[max_size];
+    float prob;
 
     struct packet samples_pack = {
         .id = "SAMPLE",
@@ -85,24 +91,28 @@ int main(void) {
         .u = stamps
     };
 
-    nvic_set_priority(NVIC_TIM4_IRQ, 1);
-    nvic_set_priority(NVIC_SYSTICK_IRQ, 2);
     
-    
-
-    size_t sample_idx, stamp_idx;
-    stamp_idx = sample_idx = 0;
-
-    /* just send one for now */
-    samples_pack.len = 1;
+    stamp_idx = 0;
+    sample_size = 10;   // todo check if enough
+    samples_pack.len = sample_size;
     stamps_pack.len = 1;
 
     while (1) {
-        
-        // dspi_rcv(samples);
+        sample_idx = 0;
+        // get n samples
+        while (sample_idx < sample_size)
+            dspi_rcv(&samples[sample_idx++]);
+
+        // if note was played:
+        if ((err = ddetect_detect_note(&note_stamp, &ans, samples, sample_size)))
+            if (note_stamp - beat_stamp >= detect_thresh)
+                duart_send_packet(beatpacket);
+
+
+
         // duart_send_packet(&samples_pack);
         // *stamps = get_time(false);
-        dmetro_poll_update((uint64_t) 250); // todo 
+        dmetro_poll_update((uint64_t) 250); 
     }
     return 0;
 }
