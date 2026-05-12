@@ -28,7 +28,7 @@ struct packet temp_pack = {
     .is_signed = false
 };
 
-uint64_t last_toggle, debounce_delay = 100; 
+uint64_t last_toggle, debounce_delay = 200; 
 
 void exti1_isr(void) {
     if ((flag = exti_get_flag_status(EXTI1))) {
@@ -180,10 +180,17 @@ extern error_t dmetro_set_tempo(uint16_t bpm) {
     }
     return OK;
 }
-// tell compiler we will use a variable like this
+
 
 extern void dmetro_start(void) {
-    test_started = true;
+    error_t err;
+    // I know I am the only one testing this, but in case I press a button one too many times...
+    if (test_step == test_bpm_len)
+        return;
+
+    // when button is toggled to ON, we will use current test step as index
+    if ((err = dmetro_set_tempo(test_bpms[test_step])))
+        error_handle(err);
     timer_enable_counter(TIM4);
     // todo trigger pulse ?
     // read manual, update might occur if something is set already
@@ -191,7 +198,7 @@ extern void dmetro_start(void) {
 
 extern void dmetro_stop(void) {
     timer_disable_counter(TIM4);
-    test_started = false;
+    test_step++;
 }
 
 extern error_t dmetro_setup(void) {
@@ -203,7 +210,7 @@ extern error_t dmetro_setup(void) {
     rcc_periph_clock_enable(RCC_GPIOC);
     rcc_periph_clock_enable(RCC_SYSCFG);
     
-    exti_set_trigger(EXTI1, EXTI_TRIGGER_FALLING);
+    exti_set_trigger(EXTI1, EXTI_TRIGGER_RISING);
     exti_select_source(EXTI1, GPIOC);
     exti_enable_request(EXTI1);
     nvic_enable_irq(NVIC_EXTI1_IRQ);

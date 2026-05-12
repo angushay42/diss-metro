@@ -72,10 +72,15 @@ extern void tempo_smoothing_test(void) {
     }
 }
 
+/* each time the metronome is restarted, a new tempo will be selected. */
+volatile size_t test_step = 0;
+uint32_t test_bpms[] = {95, 60, 45, 80, 220, 190, 75};
+size_t test_bpm_len = 7;
+
 int main(void) {
     rcc_setup();
     error_t err;
-
+    
     rcc_periph_clock_enable(RCC_GPIOC);
     gpio_mode_setup(ERROR_LED_PORT, GPIO_MODE_OUTPUT, GPIO_PUPD_PULLDOWN, ERROR_LED_PIN);
     gpio_clear(ERROR_LED_PORT, ERROR_LED_PIN);
@@ -144,15 +149,12 @@ int main(void) {
     samples_pack.len = 1;
     stamps_pack.len = 1;
 
-    
-    // temporary superloop for testing smoothing
-    // init testing var
-    test_started = false;
+    /* debated disabling interrupts but the push button is a clear start mark. */
     dmetro_stop();
-    while (1) {
-        if (test_started == true) {
-            tempo_smoothing_test();
-        }
+    /* reset test step */  
+    test_step = 0;
+    while (test_step < test_bpm_len) {
+        ;   // do nothing, we are measuring accuracy.
     }
 
     // while (1) {
