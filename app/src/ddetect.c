@@ -65,29 +65,20 @@ extern bool ddetect_detect_note(uint64_t *note_stamp, bool *ans, short *samples,
     if (n <= 1)
         return DDETECT_INVALID_SIZE;
 
+    uint16_t most, temp, num_decreasing;
     
-    // 
-    uint16_t temp, amp, arr[n];
-    error_t err;
-    struct mono_stack stack = {
-        .size = n,
-        .data = arr,
-        .idx = 0,
-    };
-    // push first sample onto stack
-    if ((err = stack_push(&stack, (uint16_t) abs(samples[0]))))
-        return err;
-    
-    for (size_t i = 1; i < n; i++) {
-        amp = (uint16_t) abs(samples[i]);
-
-        // keep popping from stack if current value is lesser
-        while (!stack_peek(&stack, &temp) && amp < temp) {
-            stack_pop(&stack, &temp);
-        }
-        err = stack_push(&stack, amp);
-
-
+    // assign initial variable
+    most = temp = (uint16_t) samples[0];
+    num_decreasing = 0;
+    for (size_t i = 1; i  < n; i++) {
+        temp = abs(samples[i]);
+        
+        // decreasing
+        if (temp < most) 
+            num_decreasing++;
+        else if (temp > most) 
+            most = temp;    // most is max value so far
+            
     }
     return OK;
 }
