@@ -1,6 +1,8 @@
 #ifndef DDETECT_H
 #define DDETECT_H
 
+#include <math.h>
+#include <stdlib.h>
 #include "common-defines.h"
 
 error_t ddettect_setup(void);

@@ -243,6 +243,9 @@ debug: $(BINARY).elf
 test: test/*.c src/d*.c
 	gcc -DTESTING test/*.c src/dringbuffer.c src/dfft.c -o test/test -g -I inc -lm 
 
+# clean test:	test/test
+
+
 .PHONY: images clean elf bin hex srec list
 
 -include $(OBJS:.o=.d)

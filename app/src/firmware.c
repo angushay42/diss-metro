@@ -43,6 +43,21 @@ extern error_t error_handle(error_t err) {
 }
 
 
+uint64_t detect_arr[2];
+struct packet detected_packet = {
+    .is_signed = false,
+    .id = "DETECT",
+    .len = 2,
+    .size = sizeof(uint64_t),
+    .u = detect_arr
+};
+
+static void report_results(uint64_t note_stamp, bool ans) {
+    detect_arr[0] = note_stamp;
+    detect_arr[1] = (uint64_t) ans;
+    duart_send_packet(&detected_packet);
+}
+
 int main(void) {
     rcc_setup();
     error_t err;
@@ -70,32 +85,13 @@ int main(void) {
     nvic_set_priority(NVIC_TIM4_IRQ, 1);
     nvic_set_priority(NVIC_SYSTICK_IRQ, 2);
     
-    size_t sample_idx, stamp_idx, sample_size, max_size;
+    size_t sample_idx, sample_size, max_size;
     max_size = 64;
-    uint64_t stamps[max_size], now, note_stamp;
+    uint64_t note_stamp;
     short samples[max_size];
-    float prob;
+    bool ans;
 
-    struct packet samples_pack = {
-        .id = "SAMPLE",
-        .is_signed = true,
-        .size = sizeof(short),
-        .len = 0,
-        .u = samples,
-    }, 
-    stamps_pack = {
-        .id = "STAMP",
-        .is_signed = false,
-        .size = sizeof(uint64_t),
-        .len = 0,
-        .u = stamps
-    };
-
-    
-    stamp_idx = 0;
     sample_size = 10;   // todo check if enough
-    samples_pack.len = sample_size;
-    stamps_pack.len = 1;
 
     while (1) {
         sample_idx = 0;
@@ -103,12 +99,12 @@ int main(void) {
         while (sample_idx < sample_size)
             dspi_rcv(&samples[sample_idx++]);
 
-        // if note was played:
+        // detect note
         if ((err = ddetect_detect_note(&note_stamp, &ans, samples, sample_size)))
-            if (note_stamp - beat_stamp >= detect_thresh)
-                duart_send_packet(beatpacket);
-
-
+            return error_handle(err);
+        
+        // send results to PC
+        report_results(note_stamp, ans);
 
         // duart_send_packet(&samples_pack);
         // *stamps = get_time(false);

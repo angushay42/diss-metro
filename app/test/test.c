@@ -66,6 +66,9 @@ int main(void) {
     if ((err = test_handle(&test_duart, "DUART PROTOCOL")))
         return err;
 
+    if ((err = test_handle(&test_stack, "STACK")))
+        return err;
+
     print_line(30);
     printf("Ran %i test%s \n", test_count, (test_count > 1) ? "s": "");
     printf("OK\n");

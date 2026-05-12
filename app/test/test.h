@@ -20,6 +20,7 @@ extern int test_duart();
 extern int test_sys_time();
 extern int test_fft();
 extern int test_delay();
+int test_stack(void);
 
 // helpers
 void print_complex(char *s, complex_t x);

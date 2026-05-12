@@ -57,6 +57,19 @@ def detect_packet() -> bool:
         return False
 
 
+def monotonic_test():
+    data = [8, 1, 2, 5, 3, 4, 1]
+    expected = 4    # 8, 5, 4, 1
+    num_decreasing = 0
+    last_number = 0
+    last_idx    = 0
+    # count how many numbers there are in strictly decreasing order
+    for i in range(1, len(data)):
+        if data[i] < data[i-1]:
+            num_decreasing += 1
+        else:
+            num_decreasing 
+
 if __name__ == "__main__":
     buf = BytesIO()
 

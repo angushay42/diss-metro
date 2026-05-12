@@ -41,7 +41,11 @@ typedef enum d_errors {
     DUART_START_SEQUENCE,
     DUART_TEST,
     DUART_SEND_NULL,
-    DUART_INVALID_SIZE
+    DUART_INVALID_SIZE,
+    DDETECT_NULL_INPUT,
+    DDETECT_INVALID_SIZE,
+    MONO_STACK_EMPTY,
+    MONO_STACK_FULL
 } error_t;
 
 enum d_flags {
@@ -51,7 +55,7 @@ enum d_flags {
     fdouble = 4,
     ffloating,
     fsigned,
-} ;
+};
 
 #ifndef TESTING
 // helper functions
