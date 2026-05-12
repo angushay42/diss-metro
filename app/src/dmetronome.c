@@ -18,20 +18,13 @@ static uint16_t scale_to_bpm(uint16_t reading);
 static uint8_t tempo_group[] = {ADC_CHANNEL0};
 static uint8_t volume_group[] = {ADC_CHANNEL1};
 
-uint32_t flag;
 bool toggle, started = false;
-struct packet temp_pack = {
-    .id = "ALERT",
-    .len = 1,
-    .size = sizeof(flag),
-    .u = &flag,
-    .is_signed = false
-};
-
 uint64_t last_toggle, debounce_delay = 200; 
 
 void exti1_isr(void) {
-    if ((flag = exti_get_flag_status(EXTI1))) {
+    // flag_status is 1 if triggered by selected trigger, 0 otherwise,
+    // so only continue if we want to
+    if (exti_get_flag_status(EXTI1)) {
         uint64_t now = get_time(false);
         /* if first time, initialise last_toggle */
         if (!started) {
@@ -42,7 +35,6 @@ void exti1_isr(void) {
         /* check if this interrupt fired < delay seconds ago */
         if (now - last_toggle >= debounce_delay) {
             last_toggle = now;
-            duart_send_packet(&temp_pack);
             toggle = !toggle;
             if (toggle)
                 dmetro_start();
@@ -183,22 +175,11 @@ extern error_t dmetro_set_tempo(uint16_t bpm) {
 
 
 extern void dmetro_start(void) {
-    error_t err;
-    // I know I am the only one testing this, but in case I press a button one too many times...
-    if (test_step == test_bpm_len)
-        return;
-
-    // when button is toggled to ON, we will use current test step as index
-    if ((err = dmetro_set_tempo(test_bpms[test_step])))
-        error_handle(err);
     timer_enable_counter(TIM4);
-    // todo trigger pulse ?
-    // read manual, update might occur if something is set already
 }
 
 extern void dmetro_stop(void) {
     timer_disable_counter(TIM4);
-    test_step++;
 }
 
 extern error_t dmetro_setup(void) {

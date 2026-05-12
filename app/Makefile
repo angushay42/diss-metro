@@ -148,7 +148,7 @@ endif
 # Used libraries
 
 # add -lm for math
-LDLIBS		+= -Wl,--start-group -lc -lm -lgcc -lnosys -Wl,--end-group
+LDLIBS		+= -Wl,--start-group -lc -lm -lgcc -Wl,--end-group
 
 ###############################################################################
 ###############################################################################

@@ -41,41 +41,6 @@ extern error_t error_handle(error_t err) {
     return err;
 }
 
-// global variable for firmware.c
-// declared in common-defines.h ONCE
-// *defined* here ONCE 
-volatile bool test_started = false;
-
-extern void tempo_smoothing_test(void) {
-    error_t err;
-    uint32_t delay, start, stop;
-    float rate = 3.0;   // bpm / second 
-
-    start = MIN_BPM, stop = MAX_BPM;
-    delay = (uint32_t) (1.0 / rate * 1000.0);    // period = 1/freq * 1000 = ms time period
-    
-    // increase tempo at rate r
-    while (start <= stop) {
-        if ((err = dmetro_set_tempo((uint16_t) start)))
-            error_handle(err);
-        delay_ms(delay);
-        start++;
-    }
-    
-    // decrease tempo at rate r
-    start = MAX_BPM, stop=MIN_BPM;
-    while (start >= stop) {
-        if ((err = dmetro_set_tempo((uint16_t) start)))
-            error_handle(err);
-        delay_ms(delay);
-        start--;
-    }
-}
-
-/* each time the metronome is restarted, a new tempo will be selected. */
-volatile size_t test_step = 0;
-uint32_t test_bpms[] = {95, 60, 45, 80, 220, 190, 75};
-size_t test_bpm_len = 7;
 
 int main(void) {
     rcc_setup();
@@ -149,36 +114,28 @@ int main(void) {
     samples_pack.len = 1;
     stamps_pack.len = 1;
 
-    /* debated disabling interrupts but the push button is a clear start mark. */
-    dmetro_stop();
-    /* reset test step */  
-    test_step = 0;
-    while (test_step < test_bpm_len) {
-        ;   // do nothing, we are measuring accuracy.
-    }
-
-    // while (1) {
+    while (1) {
         
-    //     // dspi_rcv(samples);
-    //     // duart_send_packet(&samples_pack);
-    //     // *stamps = get_time(false);
-    //     now = get_time(false);
-    //     if (!started) {
-    //         last_poll = now;
-    //         started = true;
-    //     }
-    //     // duart_send_packet(&stamps_pack);
-    //     // if now - previous >= poll_period
-    //     if (now - last_poll >= poll_period) {
-    //         last_poll = now;
-    //         if ((err = dmetro_get_tempo_reading(&reading, 40))) 
-    //             return error_handle(err);
-    //         if (reading != (tempo_copy = dmetro_get_tempo())) {
-    //             dmetro_set_tempo(reading);
-    //             duart_send_packet(&tempo_pack);
-    //             duart_send_packet(&reading_pack);
-    //         }
-    //     }
-    // }
+        // dspi_rcv(samples);
+        // duart_send_packet(&samples_pack);
+        // *stamps = get_time(false);
+        now = get_time(false);
+        if (!started) {
+            last_poll = now;
+            started = true;
+        }
+        // duart_send_packet(&stamps_pack);
+        // if now - previous >= poll_period
+        if (now - last_poll >= poll_period) {
+            last_poll = now;
+            if ((err = dmetro_get_tempo_reading(&reading, 40))) 
+                return error_handle(err);
+            if (reading != (tempo_copy = dmetro_get_tempo())) {
+                dmetro_set_tempo(reading);
+                duart_send_packet(&tempo_pack);
+                duart_send_packet(&reading_pack);
+            }
+        }
+    }
     return 0;
 }

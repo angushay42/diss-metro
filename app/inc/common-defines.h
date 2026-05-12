@@ -53,12 +53,6 @@ enum d_flags {
     fsigned,
 } ;
 
-extern void tempo_smoothing_test(void);
-extern volatile bool test_started;
-extern volatile size_t test_step;
-extern uint32_t test_bpms[];
-extern size_t test_bpm_len;
-
 #ifndef TESTING
 // helper functions
 extern void delay_ms(double ms);
