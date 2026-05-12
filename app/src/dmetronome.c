@@ -18,7 +18,7 @@ static uint16_t scale_to_bpm(uint16_t reading);
 static uint8_t tempo_group[] = {ADC_CHANNEL0};
 static uint8_t volume_group[] = {ADC_CHANNEL1};
 
-bool toggle, started = false;
+bool tempo_toggle, tempo_started = false;
 uint64_t last_toggle, debounce_delay = 200; 
 
 void exti1_isr(void) {
@@ -27,16 +27,16 @@ void exti1_isr(void) {
     if (exti_get_flag_status(EXTI1)) {
         uint64_t now = get_time(false);
         /* if first time, initialise last_toggle */
-        if (!started) {
+        if (!tempo_started) {
             last_toggle = get_time(false);
-            started = true;
+            tempo_started = true;
         }
         
         /* check if this interrupt fired < delay seconds ago */
         if (now - last_toggle >= debounce_delay) {
             last_toggle = now;
-            toggle = !toggle;
-            if (toggle)
+            tempo_toggle = !tempo_toggle;
+            if (tempo_toggle)
                 dmetro_start();
             else 
                 dmetro_stop();
@@ -113,6 +113,46 @@ extern error_t dmetro_get_tempo_reading(uint16_t *data, uint16_t cycle_timeout) 
 
     *data = scale_to_bpm(adc_read_regular(ADC1));
 
+    return OK;
+}
+
+uint64_t last_poll;
+bool poll_started = false;
+
+struct packet tempo_pack = {
+        .id = "TEMPO",
+        .is_signed =false,
+        .size = 4,
+        .len = 1,
+};
+
+/* poll ADC every poll_period (ms) and update tempo if mismatch. */
+extern error_t dmetro_poll_update(uint64_t poll_period) {
+    error_t err;
+    uint64_t now;
+    uint16_t reading;
+
+    /* get current time */
+    now = get_time(false);
+    /* if this is first loop, initialise last poll */
+    if (!poll_started) {
+        last_poll = now;
+        poll_started = true;
+    }
+        
+    // if time since last poll is exceeded, poll again
+    if (now - last_poll >= poll_period) {
+        last_poll = now;
+        /* get reading from ADC with timeout of 40 cycles */
+        if ((err = dmetro_get_tempo_reading(&reading, 40))) 
+            return error_handle(err);
+        
+            /* update tempo if necessary */
+        if (reading != dmetro_get_tempo()) {
+            dmetro_set_tempo(reading);
+            duart_send_packet(&tempo_pack);
+        }
+    }
     return OK;
 }
 

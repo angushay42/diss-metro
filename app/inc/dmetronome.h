@@ -26,6 +26,7 @@ extern error_t dadc_teardown(void);
 
 extern error_t dmetro_get_tempo_reading(uint16_t *data, uint16_t cycle_timeout);
 extern error_t dmetro_get_volume_reading(uint16_t *data);
+extern error_t dmetro_poll_update(uint64_t poll_period);
 
 extern error_t dmetro_setup(void);
 extern error_t dmetro_teardown(void);

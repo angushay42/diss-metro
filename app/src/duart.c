@@ -107,7 +107,6 @@ static error_t duart_send(struct packet *p) {
     if (p == NULL)
         return DUART_SEND_NULL;
 
-    error_t err;
     uint8_t flag;
 
     // send start char
