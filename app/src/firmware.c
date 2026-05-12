@@ -6,13 +6,6 @@
 #include "dfft.h"
 #include "dsystime.h"
 
-
-// todo float is 32 bits
-
-
-static error_t send_sample(void);
-
-
 static void rcc_setup(void) {
     rcc_clock_setup_pll(&rcc_hsi_configs[RCC_CLOCK_3V3_84MHZ]);
 }
@@ -48,39 +41,32 @@ extern error_t error_handle(error_t err) {
     return err;
 }
 
+// global variable for firmware.c
+// declared in common-defines.h ONCE
+// *defined* here ONCE 
+volatile bool test_started = false;
 
-static error_t send_sample() {
-    error_t err;
-    uint64_t stamp;
-    short sample;
-    size_t size, i;
-    // get sample
-    dspi_rcv(&sample);
-    // get time
-    stamp = get_time(false);
-
-    // // start sequence
-    // size = sizeof(stamp); 
-    // duart_start_sequence(size);
-    // duart_write_byte((uint8_t) 1);
-    // for (i = 0; i < size; i++) {
-    //     duart_write_once((uint16_t) stamp);
-    //     stamp >>= 16;
-    // }
-    sample = -320;
-    delay_ms(1000);
-    size = sizeof(sample);
-    // size |= (1 << fsigned);   // samples are signed!
-    if ((err = duart_start_sequence(size | (1 << fsigned))))
-        return err;
-    if ((err = duart_write_byte((uint8_t) 1)))
-        return err;
-    for (i = 0; i < size; i++) {
-        if ((duart_write_once((uint16_t) sample)))
-            return err;
-        sample >>= 16;
+extern void tempo_smoothing_test(void) {
+    uint32_t delay, start, stop;
+    float rate = 1.0;   // bpm / second 
+    
+    start = MIN_BPM, stop = MAX_BPM;
+    delay = (uint32_t) (1.0 / rate * 1000.0);    // period = 1/freq * 1000 = ms time period
+    
+    // increase tempo at rate r
+    while (start <= stop) {
+        dmetro_set_tempo((uint16_t) start);
+        delay_ms(delay);
+        start++;
     }
-    return OK;
+    
+    // decrease tempo at rate r
+    start = MAX_BPM, stop=MIN_BPM;
+    while (start >= stop) {
+        dmetro_set_tempo((uint16_t) start);
+        delay_ms(delay);
+        start--;
+    }
 }
 
 int main(void) {
@@ -155,28 +141,39 @@ int main(void) {
     samples_pack.len = 1;
     stamps_pack.len = 1;
 
+    
+    // temporary superloop for testing smoothing
+    // init testing var
+    test_started = false;
+    dmetro_stop();
     while (1) {
-        
-        // dspi_rcv(samples);
-        // duart_send_packet(&samples_pack);
-        // *stamps = get_time(false);
-        now = get_time(false);
-        if (!started) {
-            last_poll = now;
-            started = true;
-        }
-        // duart_send_packet(&stamps_pack);
-        // if now - previous >= poll_period
-        if (now - last_poll >= poll_period) {
-            last_poll = now;
-            if ((err = dmetro_get_tempo_reading(&reading, 40))) 
-                return error_handle(err);
-            if (reading != (tempo_copy = dmetro_get_tempo())) {
-                dmetro_set_tempo(reading);
-                // duart_send_packet(&tempo_pack);
-                duart_send_packet(&reading_pack);
-            }
+        if (test_started == true) {
+            tempo_smoothing_test();
         }
     }
+
+    // while (1) {
+        
+    //     // dspi_rcv(samples);
+    //     // duart_send_packet(&samples_pack);
+    //     // *stamps = get_time(false);
+    //     now = get_time(false);
+    //     if (!started) {
+    //         last_poll = now;
+    //         started = true;
+    //     }
+    //     // duart_send_packet(&stamps_pack);
+    //     // if now - previous >= poll_period
+    //     if (now - last_poll >= poll_period) {
+    //         last_poll = now;
+    //         if ((err = dmetro_get_tempo_reading(&reading, 40))) 
+    //             return error_handle(err);
+    //         if (reading != (tempo_copy = dmetro_get_tempo())) {
+    //             dmetro_set_tempo(reading);
+    //             duart_send_packet(&tempo_pack);
+    //             duart_send_packet(&reading_pack);
+    //         }
+    //     }
+    // }
     return 0;
 }

@@ -33,11 +33,13 @@ uint64_t last_toggle, debounce_delay = 100;
 void exti1_isr(void) {
     if ((flag = exti_get_flag_status(EXTI1))) {
         uint64_t now = get_time(false);
+        /* if first time, initialise last_toggle */
         if (!started) {
             last_toggle = get_time(false);
             started = true;
         }
-
+        
+        /* check if this interrupt fired < delay seconds ago */
         if (now - last_toggle >= debounce_delay) {
             last_toggle = now;
             duart_send_packet(&temp_pack);
@@ -52,10 +54,6 @@ void exti1_isr(void) {
     exti_reset_request(EXTI1);
 }
 
-/**
- * Setup ADC1 to recieve two analog inputs:
- * volume and tempo.
- */
 extern error_t dadc_setup(void) {
     rcc_periph_clock_enable(RCC_ADC1);
     rcc_periph_clock_enable(RCC_GPIOA);
@@ -182,8 +180,10 @@ extern error_t dmetro_set_tempo(uint16_t bpm) {
     }
     return OK;
 }
+// tell compiler we will use a variable like this
 
 extern void dmetro_start(void) {
+    test_started = true;
     timer_enable_counter(TIM4);
     // todo trigger pulse ?
     // read manual, update might occur if something is set already
@@ -191,6 +191,7 @@ extern void dmetro_start(void) {
 
 extern void dmetro_stop(void) {
     timer_disable_counter(TIM4);
+    test_started = false;
 }
 
 extern error_t dmetro_setup(void) {
