@@ -47,15 +47,17 @@ extern error_t error_handle(error_t err) {
 volatile bool test_started = false;
 
 extern void tempo_smoothing_test(void) {
+    error_t err;
     uint32_t delay, start, stop;
-    float rate = 1.0;   // bpm / second 
-    
+    float rate = 3.0;   // bpm / second 
+
     start = MIN_BPM, stop = MAX_BPM;
     delay = (uint32_t) (1.0 / rate * 1000.0);    // period = 1/freq * 1000 = ms time period
     
     // increase tempo at rate r
     while (start <= stop) {
-        dmetro_set_tempo((uint16_t) start);
+        if ((err = dmetro_set_tempo((uint16_t) start)))
+            error_handle(err);
         delay_ms(delay);
         start++;
     }
@@ -63,7 +65,8 @@ extern void tempo_smoothing_test(void) {
     // decrease tempo at rate r
     start = MAX_BPM, stop=MIN_BPM;
     while (start >= stop) {
-        dmetro_set_tempo((uint16_t) start);
+        if ((err = dmetro_set_tempo((uint16_t) start)))
+            error_handle(err);
         delay_ms(delay);
         start--;
     }
