@@ -58,6 +58,35 @@ static void report_results(uint64_t note_stamp, bool ans) {
     duart_send_packet(&detected_packet);
 }
 
+uint64_t stamp;
+short sample;
+struct packet stampp = {
+    .id = "STAMP",
+    .u = &stamp,
+    .len = 1,
+    .size = sizeof(stamp),
+    .is_signed = false,
+},
+samplep = {
+    .id = "SAMPLE",
+    .u = &sample,
+    .len = 1,
+    .size = sizeof(sample),
+    .is_signed = true
+};
+
+static void send_stamped_sample(void) {
+    // get one sample
+    dspi_rcv(&sample);
+    
+    // get a stamp
+    stamp = get_time(false);
+
+    // send both
+    duart_send_packet(&stampp);
+    duart_send_packet(&samplep);
+}
+
 int main(void) {
     rcc_setup();
     error_t err;
@@ -85,30 +114,33 @@ int main(void) {
     nvic_set_priority(NVIC_TIM4_IRQ, 1);
     nvic_set_priority(NVIC_SYSTICK_IRQ, 2);
     
-    size_t sample_idx, sample_size, max_size;
-    max_size = 64;
-    uint64_t note_stamp;
-    short samples[max_size];
-    bool ans;
+    // size_t sample_idx, sample_size, max_size;
+    // max_size = 64;
+    // uint64_t note_stamp;
+    // short samples[max_size];
+    // bool ans;
 
-    sample_size = 10;   // todo check if enough
+    // sample_size = 10;   // todo check if enough
 
     while (1) {
-        sample_idx = 0;
-        // get n samples
-        while (sample_idx < sample_size)
-            dspi_rcv(&samples[sample_idx++]);
-
-        // detect note
-        if ((err = ddetect_detect_note(&note_stamp, &ans, samples, sample_size)))
-            return error_handle(err);
-        
-        // send results to PC
-        report_results(note_stamp, ans);
-
-        // duart_send_packet(&samples_pack);
-        // *stamps = get_time(false);
-        dmetro_poll_update((uint64_t) 250); 
+        send_stamped_sample();
     }
+    // while (1) {
+    //     sample_idx = 0;
+    //     // get n samples
+    //     while (sample_idx < sample_size)
+    //         dspi_rcv(&samples[sample_idx++]);
+
+    //     // detect note
+    //     if ((err = ddetect_detect_note(&note_stamp, &ans, samples, sample_size)))
+    //         return error_handle(err);
+        
+    //     // send results to PC
+    //     report_results(note_stamp, ans);
+
+    //     // duart_send_packet(&samples_pack);
+    //     // *stamps = get_time(false);
+    //     dmetro_poll_update((uint64_t) 250); 
+    // }
     return 0;
 }
