@@ -1,10 +1,12 @@
 from io import BytesIO
-from server import MockSerial, BytesManager
+# from server import MockSerial, BytesManager
 from collections import deque
 import time
+import numpy as np
+from pathlib import Path
+import json
 
-def main():
-    ms = MockSerial()
+
 
 def detect_packet() -> bool:
         start = time.time()
@@ -57,6 +59,9 @@ def detect_packet() -> bool:
         return False
 
 
+DATA_DIR = Path(__file__).parent.parent / "data"
+
+
 def monotonic_test():
     data = [8, 1, 2, 5, 3, 4, 1]
     expected = 4    # 8, 5, 4, 1
@@ -69,8 +74,68 @@ def monotonic_test():
             num_decreasing += 1
         else:
             num_decreasing 
+samples = []
+with open(DATA_DIR / "finger-constant-precise.json", "r") as f:
+    samples = json.load(f)
+    samples = [x[1] for x in samples]
+i = 0
+def get_sample():
+    global i
+    i += 1
+    return samples[(i-1)% len(samples)]
 
-if __name__ == "__main__":
+def detect_note():
+    # general variables
+    bpm = 130
+    beats_freq = bpm / 60 
+    period = 1/ beats_freq
+
+    # add some beat counts
+    start, stop = 0, 3
+    start_time = time.time()
+    beats = np.arange(start_time+start, start_time+ stop, period)
+    beat_idx = 1
+
+    # sample window stuff
+    window = 50 / 1000  # in seconds
+    sample_rate = 780000    # samples/s
+
+    detections = []
+
+    # outerloop stuff
+    time_to_stop = time.time() + stop
+    while True:
+        # outer loop
+        now = time.time()
+        if now >= time_to_stop or beat_idx == len(beats):
+            break
+
+        start_listen = beats[beat_idx] - (window / 2)
+        stop_listen = start_listen + window
+
+        most = 0
+
+        if now >= start_listen and now < stop_listen:
+            print("listening")
+            sample = get_sample()
+            sample = abs(sample)    # get amplitude
+
+            if sample > most:
+                # update loudest value
+                most = sample
+                # mark this as a detection
+                detections.append(now)
+            # elif sample < most:
+    print(detections)
+
+
+
+
+        
+
+    
+
+def random_test_i_forgot():
     buf = BytesIO()
 
     buf.write(bytearray([ord('{'), 1, 1, 1, ord('{')]))
@@ -86,4 +151,7 @@ if __name__ == "__main__":
     print(f"len: {lenb}") 
     print(length == 4 + (size * lenb))
     
-    main()
+
+if __name__ == "__main__":
+    
+    detect_note()

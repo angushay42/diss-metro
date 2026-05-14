@@ -114,33 +114,31 @@ int main(void) {
     nvic_set_priority(NVIC_TIM4_IRQ, 1);
     nvic_set_priority(NVIC_SYSTICK_IRQ, 2);
     
-    // size_t sample_idx, sample_size, max_size;
-    // max_size = 64;
-    // uint64_t note_stamp;
-    // short samples[max_size];
-    // bool ans;
+    size_t sample_idx, sample_size, max_size;
+    max_size = 64;
+    uint64_t note_stamp, next_beat, now, listening_period;
+    short samples[max_size], sample;
+    bool ans;
 
-    // sample_size = 10;   // todo check if enough
+    listening_period = 50; // ms
+    sample_size = 10;       
 
     while (1) {
-        send_stamped_sample();
+        // wait until near to a beat
+        now = get_time(true);
+        size_t idx = 0;
+        if (next_beat - now <= listening_period) {
+            // get sample
+            dspi_rcv(&sample);
+            idx++;
+            
+            // if first sample, can't compare it
+
+        }
+
+        // duart_send_packet(&samples_pack);
+        // *stamps = get_time(false);
+        dmetro_poll_update((uint64_t) 250); 
     }
-    // while (1) {
-    //     sample_idx = 0;
-    //     // get n samples
-    //     while (sample_idx < sample_size)
-    //         dspi_rcv(&samples[sample_idx++]);
-
-    //     // detect note
-    //     if ((err = ddetect_detect_note(&note_stamp, &ans, samples, sample_size)))
-    //         return error_handle(err);
-        
-    //     // send results to PC
-    //     report_results(note_stamp, ans);
-
-    //     // duart_send_packet(&samples_pack);
-    //     // *stamps = get_time(false);
-    //     dmetro_poll_update((uint64_t) 250); 
-    // }
     return 0;
 }
