@@ -91,8 +91,30 @@ def detect_note(testing: bool):
 
     return detections
             
-            
 
+def detect_onsets(onset_thresh):
+    onsets = []
+    
+    peak_thresh = 50
+    low_signal_thresh = 100  # roughly what my guitar sits at when I don't play
+
+    # from 1 to n-1
+    i, n = 1, len(samples)
+    while i < n-1:
+        j = i+1 
+        # if near silence, prepare for note
+        if (samples[i-1] <= low_signal_thresh):
+            diff = samples[j] - samples[i]
+            if diff > 0 and diff > onset_thresh:
+                onsets.append(x_points[i])
+        i += 1
+      
+    return onsets
+
+# pseudo code:
+"""
+mark likely onsets
+"""
 
         
 
@@ -114,15 +136,8 @@ def random_test_i_forgot():
     print(f"len: {lenb}") 
     print(length == 4 + (size * lenb))
     
-
-if __name__ == "__main__":
-    import sys
-
-    testing = False
-    if len(sys.argv) > 1 and sys.argv[1] == "T":
-        testing = True
+def test_detections():
     detections = detect_note(testing)
-    
     
     # # each index is a sample so multiply that by the period ?
     # resolution = 10     # of mcu
@@ -137,7 +152,6 @@ if __name__ == "__main__":
 
     # scale = 100  #ms
     # scaled_x = [x * scale for x in x_points]
-
     starts = [x_points[x[0]] for x in detections]
     stops = [x_points[x[1]-1] for x in detections]
 
@@ -147,3 +161,39 @@ if __name__ == "__main__":
     plt.vlines(starts, ymax=lims[1], ymin=lims[0], colors='r')
     plt.vlines(stops, ymax=lims[1], ymin=lims[0], colors='g')
     plt.show()
+
+def test_onsets():
+    # LSB = 0.6mV
+    onsets = detect_onsets(500)
+
+    plt.plot(x_points, samples)
+    
+    plt.vlines(onsets, ymin=-4096, ymax=4095, colors="g", alpha=0.2)
+    plt.show()
+
+def test_average():
+    avgs = []
+    count = 0
+    for i in range(len(samples)):
+        count += samples[i]
+        avgs.append(count / (i+1))
+
+    plt.stem(x_points, samples, markerfmt=" ")
+    plt.plot(x_points, avgs, c="r")
+    plt.show()
+
+if __name__ == "__main__":
+    import sys
+
+    testing = False
+    if len(sys.argv) > 1 and sys.argv[1] == "T":
+        testing = True
+    
+    test_average()
+    
+
+    
+
+    
+
+    
