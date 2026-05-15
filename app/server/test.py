@@ -172,11 +172,14 @@ def test_onsets():
     plt.show()
 
 def test_average():
-    avgs = []
-    count = 0
-    for i in range(len(samples)):
-        count += samples[i]
-        avgs.append(count / (i+1))
+    avg = samples[0]
+    avgs = [avg]
+
+    thresh = 100
+    for i in range(1, len(samples)):
+        if abs(samples[i] - avg) < thresh:
+            avg = ((avg * (i)) + samples[i]) / max(1, i + 1)
+        avgs.append(avg)
 
     plt.stem(x_points, samples, markerfmt=" ")
     plt.plot(x_points, avgs, c="r")
