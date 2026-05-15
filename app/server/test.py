@@ -25,7 +25,7 @@ def monotonic_test():
             num_decreasing 
 x_points, y_points = [], []
 samples = []
-with open(DATA_DIR / "finger-constant-precise.json", "r") as f:
+with open(DATA_DIR / "pick-constant-precise.json", "r") as f:
     samples = json.load(f)
     x_points = [x[0] for x in samples]
     y_points = [x[1] for x in samples]
@@ -92,50 +92,32 @@ def detect_note(testing: bool):
     return detections
             
 
+# https://stackoverflow.com/questions/294468/note-onset-detection
+# this link is super helpful. the top answer is very detailed however I think I just need to adjust 
+# my method a little bit, and actually it seems like a combination of differernt methods I've tried. Will update git.
 def detect_onsets(onset_thresh):
     onsets = []
+    avg = samples[0]
     
-    peak_thresh = 50
     low_signal_thresh = 100  # roughly what my guitar sits at when I don't play
 
     # from 1 to n-1
     i, n = 1, len(samples)
     while i < n-1:
-        j = i+1 
-        # if near silence, prepare for note
-        if (samples[i-1] <= low_signal_thresh):
-            diff = samples[j] - samples[i]
-            if diff > 0 and diff > onset_thresh:
-                onsets.append(x_points[i])
+        j = i + 1
+        # constantly track average low signal
+        if abs(samples[i] - avg) < low_signal_thresh:
+            avg = ((avg * (i)) + samples[i]) / max(1, i + 1)
+        
+        if samples[i] > avg:
+
+
+
         i += 1
       
     return onsets
 
-# pseudo code:
-"""
-mark likely onsets
-"""
 
-        
-
-    
-
-def random_test_i_forgot():
-    buf = BytesIO()
-
-    buf.write(bytearray([ord('{'), 1, 1, 1, ord('{')]))
-    start = 0
-    end = buf.tell() - 1
-    length = (end - start + 1)
-    buf.seek(1, start)
-    flagb = int.from_bytes(buf.read(1), 'little')
-    size = 1
-    print(f"flag: {flagb}")
-    # buf.seek(2, start)
-    lenb = int.from_bytes(buf.read(1), 'little')
-    print(f"len: {lenb}") 
-    print(length == 4 + (size * lenb))
-    
 def test_detections():
     detections = detect_note(testing)
     
@@ -178,6 +160,7 @@ def test_average():
     thresh = 100
     for i in range(1, len(samples)):
         if abs(samples[i] - avg) < thresh:
+
             avg = ((avg * (i)) + samples[i]) / max(1, i + 1)
         avgs.append(avg)
 
@@ -192,8 +175,8 @@ if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "T":
         testing = True
     
-    test_average()
-    
+    # test_average()
+    test_onsets()
 
     
 
