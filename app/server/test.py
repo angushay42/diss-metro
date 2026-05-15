@@ -25,7 +25,7 @@ def monotonic_test():
             num_decreasing 
 x_points, y_points = [], []
 samples = []
-with open(DATA_DIR / "pick-constant-precise.json", "r") as f:
+with open(DATA_DIR / "finger-constant-precise.json", "r") as f:
     samples = json.load(f)
     x_points = [x[0] for x in samples]
     y_points = [x[1] for x in samples]
@@ -97,31 +97,31 @@ def detect_note(testing: bool):
 # my method a little bit, and actually it seems like a combination of differernt methods I've tried. Will update git.
 def detect_onsets(window_size: int, onset_thresh: int) -> list[tuple[int,int]]:
     onsets = []
-    avg = samples[0]
+    avg = y_points[0]
 
     low_signal_thresh = 100  # roughly what my guitar sits at when I don't play
 
-    n = len(samples)
+    n = len(y_points)
 
     # window start, stop, and average
     wstart, wstop = 0, 0
-    wsum = samples[0]
+    wsum = y_points[0]
     while wstop < n:
         # constantly track average low signal
-        if abs(samples[wstop] - avg) < low_signal_thresh:
-            avg = ((avg * (wstop)) + samples[wstop]) / max(1, wstop + 1)
+        if abs(y_points[wstop] - avg) < low_signal_thresh:
+            avg = ((avg * (wstop)) + y_points[wstop]) / max(1, wstop + 1)
         # fill window
         if wstop - wstart < window_size:
-            wsum += samples[i]
+            wsum += y_points[i]
             wstop += 1
         else:
-            wsum += samples[wstop]
+            wsum += y_points[wstop]
             # get average of window
             wavg = wsum / window_size 
             if wavg > avg and wavg > onset_thresh:
                 
                 onsets.append((wstart, wstop))
-            wsum -= samples[wstart]
+            wsum -= y_points[wstart]
             
             # move window
             wstart += 1
@@ -167,14 +167,14 @@ def test_onsets():
     min_window = 100
     window_size = max(min_window, window_size)
 
-    onsets = detect_onsets(window_size, 1200)
+    onsets = detect_onsets(window_size, 100)
 
-    plt.stem(x_points, samples, markerfmt=" ")
+    plt.stem(x_points, y_points, markerfmt=" ")
     starts = [x_points[x[0]] for x in onsets]
     stops = [x_points[x[1]] for x in onsets]
     # plt.vlines(starts, ymin=-4096, ymax=4095, colors="g", alpha=0.4)
     # plt.vlines(stops, ymin=-4096, ymax=4095, colors="r",  alpha=0.4)
-    plt.hlines([samples[x[0]] for x in onsets], starts, stops, colors="r" )
+    plt.hlines([y_points[x[0]] for x in onsets], starts, stops, colors="r" )
     plt.show()
 
 def test_average():
@@ -192,6 +192,26 @@ def test_average():
     plt.plot(x_points, avgs, c="r")
     plt.show()
 
+def test_compression():
+    
+    # from https://stackoverflow.com/questions/294468/note-onset-detection#:~:text=Update%3A%20here-,is,-a%20version%20of
+    param = 1.5
+    peak_val = 4095
+    compressed = []
+    for i in range(len(y_points)):
+        val = samples[i]
+        sign = -1 if val < 0 else 1
+        norm = abs(val / peak_val)
+        norm = 1 - pow(1 - norm, param)
+        compressed.append(peak_val * sign * norm)
+    x, y, z = plt.stem(x_points, compressed, markerfmt=" ", label="compressed")
+    y.set_color("r")
+    x1,y1,z1 = plt.stem(x_points, samples, markerfmt=" ", label="original")
+    y1.set_color("b")
+
+    plt.legend()
+    plt.show()
+
 if __name__ == "__main__":
     import sys
 
@@ -199,8 +219,8 @@ if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "T":
         testing = True
     
-
-    test_onsets()
+    test_compression()
+    # test_onsets()
 
     
 
