@@ -1,7 +1,7 @@
 #include "dsystime.h"
 
 
-/* time in ms */
+/* time in (ms / resolution) */
 volatile uint64_t sys_time;
 uint32_t _resolution, _psc;
 

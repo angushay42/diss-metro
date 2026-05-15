@@ -5,58 +5,7 @@ import time
 import numpy as np
 from pathlib import Path
 import json
-
-
-
-def detect_packet() -> bool:
-        start = time.time()
-        # mark all start bytes
-            # store upon finding one
-        # check for valid packets when stop byte is found
-            # if len byte matches length found 
-            # if flag matches etc
-        # flush buffer
-        start_byte = BytesManager.start.to_bytes(1, 'little')
-        stop_byte = BytesManager.stop.to_bytes(1, 'little')
-
-        starts = deque()
-        while True:
-            # read from input stream
-            d = self.stream.read()
-            if d == start_byte:
-                # store in buffer and mark the start of a potential packet
-                self.buffer.write(d)
-                starts.append(self.buffer.tell() - 1)
-                continue
-            # if there's a potential packet, keep storing to buffer
-            if starts:
-                self.buffer.write(d)
-            # if we find a stop byte, check if there is a valid packet
-            if d == stop_byte:
-                # NOTE: this is the index of the last char, not length.
-                maybe_end = self.buffer.tell() - 1
-                # for each potential start
-                while starts:
-                    # check if distance is valid
-                    maybe_start = starts.popleft()
-                    total_len = abs(maybe_start - maybe_end)
-                    # packet sizes
-                    if not (BytesManager.packet_min <= total_len + 1 <= BytesManager.packet_max):
-                        continue
-                    # seek to start + 1 (pointing at flag byte)
-                    self.buffer.seek(1,maybe_start)
-
-                    flag = int.from_bytes(self.buffer.read(1), 'little')
-                    
-                    length = int.from_bytes(self.buffer.read(1), 'little')
-                    size = BytesManager.get_size_from_flag(flag)
-                    if (size * length) != total_len - 4:
-                        continue
-
-                return True
-    
-        
-        return False
+import matplotlib.pyplot as plt
 
 
 DATA_DIR = Path(__file__).parent.parent / "data"
@@ -74,17 +23,25 @@ def monotonic_test():
             num_decreasing += 1
         else:
             num_decreasing 
+x_points, y_points = [], []
 samples = []
 with open(DATA_DIR / "finger-constant-precise.json", "r") as f:
     samples = json.load(f)
-    samples = [x[1] for x in samples]
+    x_points = [x[0] for x in samples]
+    y_points = [x[1] for x in samples]
+    samples = [abs(x) for x in y_points]
+
 i = 0
 def get_sample():
     global i
     i += 1
     return samples[(i-1)% len(samples)]
 
-def detect_note():
+def get_time():
+    return time.time()
+
+
+def detect_note(testing: bool):
     # general variables
     bpm = 130
     beats_freq = bpm / 60 
@@ -92,43 +49,49 @@ def detect_note():
 
     # add some beat counts
     start, stop = 0, 3
-    start_time = time.time()
-    beats = np.arange(start_time+start, start_time+ stop, period)
+    start_time = get_time()
+    beats = np.arange(start_time + start, start_time + stop, period)
     beat_idx = 1
 
     # sample window stuff
-    window = 50 / 1000  # in seconds
+    window = 10 / 1000  # in seconds
     sample_rate = 780000    # samples/s
 
     detections = []
 
-    # outerloop stuff
-    time_to_stop = time.time() + stop
-    while True:
-        # outer loop
-        now = time.time()
-        if now >= time_to_stop or beat_idx == len(beats):
-            break
+    loudness_thresh = 100   # 100 * LSB
+    detection_thresh = 2    # num samples decreasing...
 
-        start_listen = beats[beat_idx] - (window / 2)
-        stop_listen = start_listen + window
+    i = 0
+    n = len(samples)
+    while i < n:
+        count = 0
+        if samples[i] > loudness_thresh:
 
-        most = 0
+            # iterate while values are increasing
+            # j is next sample
+            count = 0
+            j = i + 1
+            while j < n and samples[i] < samples[j]:
+                count += 1
+                j+= 1
+            print(f"after increasing... i: {i}, j: {j}, count: {count}")
+            # i should now point to a potential start
+            i = j
+            j = i + 1
+            while j < n and samples[i] > samples[j]:
+                j += 1
+                count += 1
+            print(f"after decreasing... i: {i}, j: {j}, count: {count}")
+            if count > detection_thresh:
+                detections.append((i, j))
+            i = j
+        else:
+            i += 1
 
-        if now >= start_listen and now < stop_listen:
-            print("listening")
-            sample = get_sample()
-            sample = abs(sample)    # get amplitude
-
-            if sample > most:
-                # update loudest value
-                most = sample
-                # mark this as a detection
-                detections.append(now)
-            # elif sample < most:
-    print(detections)
-
-
+    return detections
+            
+            
 
 
         
@@ -144,7 +107,7 @@ def random_test_i_forgot():
     length = (end - start + 1)
     buf.seek(1, start)
     flagb = int.from_bytes(buf.read(1), 'little')
-    size = BytesManager.get_size_from_flag(flagb)
+    size = 1
     print(f"flag: {flagb}")
     # buf.seek(2, start)
     lenb = int.from_bytes(buf.read(1), 'little')
@@ -153,5 +116,34 @@ def random_test_i_forgot():
     
 
 if __name__ == "__main__":
+    import sys
+
+    testing = False
+    if len(sys.argv) > 1 and sys.argv[1] == "T":
+        testing = True
+    detections = detect_note(testing)
     
-    detect_note()
+    
+    # # each index is a sample so multiply that by the period ?
+    # resolution = 10     # of mcu
+    # sample_rate = 78    # samples/ms
+    # period = 1 / sample_rate * resolution
+    # start = min(x_points)
+    
+    # starts = [start + (x[0] * period) for x in detections]
+    # stops = [start + (x[1] * period) for x in detections]
+    
+    lims = (min(y_points)-50, max(y_points) + 50)
+
+    # scale = 100  #ms
+    # scaled_x = [x * scale for x in x_points]
+
+    starts = [x_points[x[0]] for x in detections]
+    stops = [x_points[x[1]-1] for x in detections]
+
+    # plt.plot(x_points, y_points, color="orange")  # orange for actual data
+    plt.plot(x_points, samples, color="b")  # blue for samples
+
+    plt.vlines(starts, ymax=lims[1], ymin=lims[0], colors='r')
+    plt.vlines(stops, ymax=lims[1], ymin=lims[0], colors='g')
+    plt.show()
