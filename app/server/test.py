@@ -104,7 +104,7 @@ def detect_onsets(window_size: int, onset_thresh: int) -> list[tuple[int,int]]:
     n = len(samples)
 
     # window start, stop, and average
-    wstart, wstop = 0, window_size
+    wstart, wstop = 0, 0
     wsum = samples[0]
     while wstop < n:
         # constantly track average low signal
@@ -113,13 +113,16 @@ def detect_onsets(window_size: int, onset_thresh: int) -> list[tuple[int,int]]:
         # fill window
         if wstop - wstart < window_size:
             wsum += samples[i]
-            wstart += 1
+            wstop += 1
         else:
+            wsum += samples[wstop]
             # get average of window
             wavg = wsum / window_size 
             if wavg > avg and wavg > onset_thresh:
-                onsets.append((wstart,wstop))
                 
+                onsets.append((wstart, wstop))
+            wsum -= samples[wstart]
+            
             # move window
             wstart += 1
             wstop += 1
@@ -156,14 +159,22 @@ def test_detections():
 
 def test_onsets():
     # LSB = 0.6mV
-    bpm = 120
-    window_size = 1 / bpm / 60
-
-    onsets = detect_onsets(500)
-
-    plt.plot(x_points, samples)
     
-    plt.vlines(onsets, ymin=-4096, ymax=4095, colors="g", alpha=0.2)
+    bpm = 120
+    # roughly the width of a beat, in ms
+    window_size = round(1 / ((bpm / 60) / 1000)) - 200
+    window_size = 0 
+    min_window = 100
+    window_size = max(min_window, window_size)
+
+    onsets = detect_onsets(window_size, 1200)
+
+    plt.stem(x_points, samples, markerfmt=" ")
+    starts = [x_points[x[0]] for x in onsets]
+    stops = [x_points[x[1]] for x in onsets]
+    # plt.vlines(starts, ymin=-4096, ymax=4095, colors="g", alpha=0.4)
+    # plt.vlines(stops, ymin=-4096, ymax=4095, colors="r",  alpha=0.4)
+    plt.hlines([samples[x[0]] for x in onsets], starts, stops, colors="r" )
     plt.show()
 
 def test_average():
@@ -189,14 +200,6 @@ if __name__ == "__main__":
         testing = True
     
 
-    avg = 0
-    for i in range(1, len(x_points)):
-        avg += abs(x_points[i] - x_points[i-1])
-    avg = avg / (len(x_points) - 1)
-
-
-    exit()
-    # test_average()
     test_onsets()
 
     
