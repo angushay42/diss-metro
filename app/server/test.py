@@ -95,25 +95,35 @@ def detect_note(testing: bool):
 # https://stackoverflow.com/questions/294468/note-onset-detection
 # this link is super helpful. the top answer is very detailed however I think I just need to adjust 
 # my method a little bit, and actually it seems like a combination of differernt methods I've tried. Will update git.
-def detect_onsets(onset_thresh):
+def detect_onsets(window_size: int, onset_thresh: int) -> list[tuple[int,int]]:
     onsets = []
     avg = samples[0]
-    
+
     low_signal_thresh = 100  # roughly what my guitar sits at when I don't play
 
-    # from 1 to n-1
-    i, n = 1, len(samples)
-    while i < n-1:
-        j = i + 1
+    n = len(samples)
+
+    # window start, stop, and average
+    wstart, wstop = 0, window_size
+    wsum = samples[0]
+    while wstop < n:
         # constantly track average low signal
-        if abs(samples[i] - avg) < low_signal_thresh:
-            avg = ((avg * (i)) + samples[i]) / max(1, i + 1)
+        if abs(samples[wstop] - avg) < low_signal_thresh:
+            avg = ((avg * (wstop)) + samples[wstop]) / max(1, wstop + 1)
+        # fill window
+        if wstop - wstart < window_size:
+            wsum += samples[i]
+            wstart += 1
+        else:
+            # get average of window
+            wavg = wsum / window_size 
+            if wavg > avg and wavg > onset_thresh:
+                onsets.append((wstart,wstop))
+                
+            # move window
+            wstart += 1
+            wstop += 1
         
-        if samples[i] > avg:
-
-
-
-        i += 1
       
     return onsets
 
@@ -146,6 +156,9 @@ def test_detections():
 
 def test_onsets():
     # LSB = 0.6mV
+    bpm = 120
+    window_size = 1 / bpm / 60
+
     onsets = detect_onsets(500)
 
     plt.plot(x_points, samples)
@@ -175,6 +188,14 @@ if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "T":
         testing = True
     
+
+    avg = 0
+    for i in range(1, len(x_points)):
+        avg += abs(x_points[i] - x_points[i-1])
+    avg = avg / (len(x_points) - 1)
+
+
+    exit()
     # test_average()
     test_onsets()
 

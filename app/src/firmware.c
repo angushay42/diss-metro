@@ -124,17 +124,7 @@ int main(void) {
     sample_size = 10;       
 
     while (1) {
-        // wait until near to a beat
-        now = get_time(true);
-        size_t idx = 0;
-        if (next_beat - now <= listening_period) {
-            // get sample
-            dspi_rcv(&sample);
-            idx++;
-            
-            // if first sample, can't compare it
-
-        }
+        dspi_rcv(&sample);
 
         // duart_send_packet(&samples_pack);
         // *stamps = get_time(false);
