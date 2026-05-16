@@ -6,6 +6,9 @@ import numpy as np
 from pathlib import Path
 import json
 import matplotlib.pyplot as plt
+from matplotlib.figure import Figure
+from matplotlib.axes import Axes
+
 
 
 DATA_DIR = Path(__file__).parent.parent / "data"
@@ -145,6 +148,15 @@ def log_compress(x, delta, r):
         return x
     return pow(delta, 1-(1/r)) * pow(x, 1/r)
     
+def plot_line(ax:Axes, x, y, color, label):
+    ax.plot(x,y,color=color, label=label)
+    return ax
+
+def plot_stem(ax: Axes, x, y, color, label):
+    lines = ax.stem(x,y, markerfmt=' ', label=label)
+    lines[1].set_color(color)
+    return ax
+
 def test_detections():
     detections = detect_note()
     
@@ -218,25 +230,119 @@ def test_compression():
     
     target = samples
     # from https://stackoverflow.com/questions/294468/note-onset-detection#:~:text=Update%3A%20here-,is,-a%20version%20of
-    param = 1.5
-    lineard = [compress(x, param) for x in target]
 
-    logd = [log_compress(x, 2048, 3) for x in target]
 
-    fig, axs = plt.subplots(3)
+    colours = ["r", "g", "b"]
+    delta_values = [2048]
+    r_values = [1, 2, 3, 5, 8, 10]
 
-    bits = [[lineard, "linear", "r"], [target, "original", "b"], [logd, "logarithmic", "g"]]
-
+    fig, axs = plt.subplots(max(len(r_values), len(delta_values)))
     # stem returnes marker, stem, base
     for i, ax in enumerate(axs):
-        bit = bits[i]
-        m,s,b = ax.stem(x_points, bit[0], markerfmt=" ", label=bit[1])
-        s.set_color(bit[2])
+        d = delta_values[i % len(delta_values)]
+        r = r_values[i % len(r_values)]
+
+        compressed = [log_compress(x, d, r) for x in target]
+        m,s,b = ax.stem(x_points, compressed , markerfmt=" ", label=f"d: {d}, r: {r}")
+        s.set_color(colours[i % len(colours)])
         ax.set_ylim((0, 4095))
         ax.legend()
 
     plt.legend()
     plt.show()
+
+
+def lowpass(target, dt, rc):
+    """ From wiki: https://en.wikipedia.org/wiki/Low-pass_filter#:~:text=//%20Return%20RC%20low,1%5D%0A%20%20%20%20return%20y
+    - target samples
+    - dt time difference between each sample
+    - RC is a time constant, equal to the reciprocal of 1/(2PI*cutoff)
+    """
+    assert len(target) > 1
+    y = [0]*len(target)
+    alpha = dt / (rc + dt)
+    y[0] = target[0]*alpha
+    for i in range(1, len(target)):
+        y[i] = y[i-1] + alpha * (target[i] - y[i-1])
+
+    return y
+
+from scipy.signal import butter, filtfilt
+
+
+
+def test_lowpass():
+    target = samples
+    # dt = 3.3 / 1000 # in seconds
+    # rcs = [i * dt for i in range(5)]
+
+    ##  wiki lowpass with different time constants
+    # num_plots = len(rcs) + 2    # 1 for orig, 1 for scipy
+    # colors = ['r', 'b']
+    # fig, axs = plt.subplots(2)
+    # fig: Figure
+    # axs: list[Axes]
+    # # for i in range(num_plots - 1):
+    # #     ax = axs[i]
+    # #     if i == 0:
+    # #         m, s, b = ax.stem(x_points, target, markerfmt=" ")
+    # #         s.set_color("g")
+    # #         ax.set_ylim(0, 4095)
+    # #         continue
+    # #     filtered = lowpass(target, dt, rcs[i - 1])
+    # #     color = colors[i % len(colors)]
+    # #     m,s,b = ax.stem(x_points, filtered, markerfmt=" ", label=f"RC = {rcs[i-1]}")
+    # #     s.set_color(color)
+    # #     ax.legend()
+
+    
+    fig, (ax1, ax2) = plt.subplots(2)
+    ax1 = plot_line(ax1, x_points, target, "teal", "original")
+    ax1: Axes
+    ax2: Axes
+    # cutoff frequency randomly selected
+    cutoff = 100        # hz
+    # average distance of samples from test data set
+    dt = 3.3 / 1000     # in seconds
+    # given from wikipedia.
+    rc = 1 / (2 * np.pi * cutoff)
+
+    # given by example code found from https://medium.com/@ChanakaDev/low-pass-high-pass-and-band-pass-filters-with-scipy-python-a87b2332ce25
+    order = 4
+    fs = 1 / dt
+    nyq = 0.5 * fs  # nyquist freq is half sampling rate
+    
+    # time markers for different functions
+    starts, ends = [], []
+
+    # start timer
+    starts.append(time.time())
+
+    # create a filter
+    b, a = butter(order, cutoff / nyq, btype='lowpass')
+    # apply it forwards and backwards
+    filtered = filtfilt(b, a, target)
+    
+    # mark end
+    ends.append(time.time())
+
+    # plot butter filter
+    ax1 = plot_line(ax1, x_points, filtered, "red", "SciPy Butter method")
+    
+    # simple wiki iir filter
+    starts.append(time.time())
+    filtered = lowpass(target, dt, rc)
+    ends.append(time.time())
+
+    # plot simple
+    ax1 = plot_line(ax1, x_points, filtered, "green", "Wiki Simple IIR method")
+
+    # plot timings
+    ax2.bar(np.arange(len(starts)), [abs(starts[i] - ends[i]) for i in range(len(starts))])
+    ax2.set_xticks(np.arange(len(starts)), ["butter", "wiki"])
+    ax1.legend()
+    plt.show()
+
 
 def main():
     import sys
@@ -245,8 +351,9 @@ def main():
     if len(sys.argv) > 1 and sys.argv[1] == "T":
         testing = True
     
+    test_lowpass()
     # test_compression()
-    test_onsets()
+    # test_onsets()
 
 if __name__ == "__main__":
     main()

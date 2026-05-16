@@ -82,9 +82,9 @@ static void send_stamped_sample(void) {
     // get a stamp
     stamp = get_time(false);
 
-    // send both
-    duart_send_packet(&stampp);
-    duart_send_packet(&samplep);
+    // // send both
+    // duart_send_packet(&stampp);
+    // duart_send_packet(&samplep);
 }
 
 int main(void) {
@@ -124,11 +124,12 @@ int main(void) {
     sample_size = 10;       
 
     while (1) {
-        dspi_rcv(&sample);
+        // dspi_rcv(&sample);
+        send_stamped_sample();
 
         // duart_send_packet(&samples_pack);
         // *stamps = get_time(false);
-        dmetro_poll_update((uint64_t) 250); 
+        // dmetro_poll_update((uint64_t) 250); 
     }
     return 0;
 }
