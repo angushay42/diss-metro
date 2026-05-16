@@ -98,14 +98,13 @@ def detect_note(testing: bool):
 def detect_onsets(
         target: list[int], 
         window_size: int, 
-        onset_thresh: int, 
-        func: 'function',
-        param: float) -> list[tuple[int,int]]:
+        onset_thresh: int
+    ) -> list[tuple[int,int]]:
+    """Detects onsets on a given target range of samples"""
     onsets = []
     avg = target[0]
 
     low_signal_thresh = 80  # roughly what my guitar sits at when I don't play
-
     n = len(target)
 
     # window start, stop, and average
@@ -117,15 +116,15 @@ def detect_onsets(
             avg = ((avg * (wstop)) + target[wstop]) / max(1, wstop + 1)
         # fill window
         if wstop - wstart < window_size:
-            wsum += func(target[wstop], param)
+            wsum += target[wstop]
             wstop += 1
         else:
-            wsum += func(target[wstop], param)
+            wsum += target[wstop]
             # get average of window
             wavg = wsum / window_size 
             if wavg > avg and wavg > onset_thresh:
                 onsets.append((wstart, wstop))
-            wsum -= func(target[wstart], param)
+            wsum -= target[wstart]
             
             # move window
             wstart += 1
@@ -184,12 +183,12 @@ def test_onsets():
     window_size /= 2
 
     min_window = 50
-    def fake_compress(x, y): return x
     window_size = max(min_window, window_size)
 
+    delta, r, param = 1500, 2, 2.3
     target = samples
-    param = 2.3
-    onsets = detect_onsets(target, min_window, 800, compress, param)
+    target = [log_compress(x, delta, r) for x in target]
+    onsets = detect_onsets(target, min_window, 900)
 
     plt.stem(x_points, target, markerfmt=" ")
     starts = [x_points[x[0]] for x in onsets]
@@ -246,8 +245,8 @@ def main():
     if len(sys.argv) > 1 and sys.argv[1] == "T":
         testing = True
     
-    test_compression()
-    # test_onsets()
+    # test_compression()
+    test_onsets()
 
 if __name__ == "__main__":
     main()
