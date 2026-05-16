@@ -8,8 +8,7 @@ import json
 import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 from matplotlib.axes import Axes
-
-
+from scipy.signal import butter, filtfilt
 
 DATA_DIR = Path(__file__).parent.parent / "data"
 
@@ -136,7 +135,7 @@ def detect_onsets(
       
     return onsets
 
-
+# ================ pre-processing function ================== #
 def compress(x, param:float):
     sign = -1 if x < 0 else 1
     norm = abs(x / 4095)
@@ -147,7 +146,23 @@ def log_compress(x, delta, r):
     if x <= delta:
         return x
     return pow(delta, 1-(1/r)) * pow(x, 1/r)
-    
+
+def lowpass(target, dt, rc):
+    """ From wiki: https://en.wikipedia.org/wiki/Low-pass_filter#:~:text=//%20Return%20RC%20low,1%5D%0A%20%20%20%20return%20y
+    - target samples
+    - dt time difference between each sample
+    - RC is a time constant, equal to the reciprocal of 1/(2PI*cutoff)
+    """
+    assert len(target) > 1
+    y = [0]*len(target)
+    alpha = dt / (rc + dt)
+    y[0] = target[0]*alpha
+    for i in range(1, len(target)):
+        y[i] = y[i-1] + alpha * (target[i] - y[i-1])
+
+    return y
+
+# ================ plotting helpers ================== #
 def plot_line(ax:Axes, x, y, color, label):
     ax.plot(x,y,color=color, label=label)
     return ax
@@ -157,6 +172,19 @@ def plot_stem(ax: Axes, x, y, color, label):
     lines[1].set_color(color)
     return ax
 
+def plot_onsets(ax:Axes, target, onsets, colors="r"):
+    heights = [target[x[0]] for x in onsets]
+    starts = [x_points[x[0]] for x in onsets]
+    stops = [x_points[x[1]] for x in onsets]
+    ax = plot_hlines(ax, heights, starts, stops, colors=colors)
+    return ax
+
+def plot_hlines(ax:Axes, y, start, stop, colors="r", label=""):
+    ax.hlines(y, start, stop, colors=colors, label=label)
+    return ax
+
+
+# ================ test functions ================== #
 def test_detections():
     detections = detect_note()
     
@@ -185,7 +213,7 @@ def test_detections():
 
 def test_onsets():
     # LSB = 0.6mV
-    
+
     bpm = 120
     # roughly the width of a beat, in ms
     window_size = round(1 / ((bpm / 60) / 1000))
@@ -197,17 +225,58 @@ def test_onsets():
     min_window = 50
     window_size = max(min_window, window_size)
 
-    delta, r, param = 1500, 2, 2.3
-    target = samples
-    target = [log_compress(x, delta, r) for x in target]
-    onsets = detect_onsets(target, min_window, 900)
+    window_size = 50
+    thresh = 900    # amplitude in LSB
 
-    plt.stem(x_points, target, markerfmt=" ")
-    starts = [x_points[x[0]] for x in onsets]
-    stops = [x_points[x[1]] for x in onsets]
-    # plt.vlines(starts, ymin=-4096, ymax=4095, colors="g", alpha=0.4)
-    # plt.vlines(stops, ymin=-4096, ymax=4095, colors="r",  alpha=0.4)
-    plt.hlines([target[x[0]] for x in onsets], starts, stops, colors="r")
+    # test no processing, compressed, filtered.
+    inputs = []
+    labels = []
+    colors = ["r"]
+    target = samples
+    inputs.append(target)
+    labels.append("raw")
+
+    # compressed input data
+    delta, r, param = 1500, 2, 2.3
+
+    compressed = [log_compress(x, delta, r) for x in target]
+    inputs.append(compressed)
+    labels.append("compressed")
+
+
+    # low pass filtered input data
+    cutoff = 50    # hz
+    dt = 3.3 / 1000 # seconds
+    rc = 1 / (2 * np.pi * cutoff)
+    filtered = lowpass(target, dt, rc)
+    inputs.append(filtered)
+    labels.append("filtered")
+
+
+    double = lowpass(compressed, dt, rc)
+    inputs.append(double)
+    labels.append("compressed then filtered")
+
+    double2 = [log_compress(x, delta, r) for x in filtered]
+    inputs.append(double2)
+    labels.append("filtered then compressed")
+
+    smoothed = [(sum(target[i-1:i+2])/3) if 1 <= i < len(target) - 1 else target[i] for i in range(len(target))]
+    inputs.append(smoothed)
+    labels.append("smoothed")
+
+    # plot raw input data
+    fig, axs = plt.subplots(len(inputs))
+    axs: list[Axes]
+    for i, ax in enumerate(axs):
+        target = samples
+        plot_stem(ax, x_points, inputs[i], "teal", label=labels[i])
+
+        onsets = detect_onsets(inputs[i], window_size, thresh)
+        ax = plot_onsets(ax, inputs[i], onsets, colors=colors[i % len(colors)])
+        ax.set_label("")
+        ax.legend()
+  
 
     plt.show()
 
@@ -250,26 +319,6 @@ def test_compression():
 
     plt.legend()
     plt.show()
-
-
-def lowpass(target, dt, rc):
-    """ From wiki: https://en.wikipedia.org/wiki/Low-pass_filter#:~:text=//%20Return%20RC%20low,1%5D%0A%20%20%20%20return%20y
-    - target samples
-    - dt time difference between each sample
-    - RC is a time constant, equal to the reciprocal of 1/(2PI*cutoff)
-    """
-    assert len(target) > 1
-    y = [0]*len(target)
-    alpha = dt / (rc + dt)
-    y[0] = target[0]*alpha
-    for i in range(1, len(target)):
-        y[i] = y[i-1] + alpha * (target[i] - y[i-1])
-
-    return y
-
-from scipy.signal import butter, filtfilt
-
-
 
 def test_lowpass():
     target = samples
@@ -343,6 +392,21 @@ def test_lowpass():
     ax1.legend()
     plt.show()
 
+def test_smooth():
+    fig, axs = plt.subplots(2)
+    target = samples
+    plot_stem(axs[0], x_points, target, "teal", "base")
+    plot_stem(axs[1], x_points, target, "teal", "base")
+
+    smoothed = [(sum(target[i-1:i+2])/3) if 1 <= i < len(target) - 1 else target[i] for i in range(len(target))]
+    plot_stem(axs[0], x_points, smoothed, "red", "smoothed")
+    axs[0].legend()
+    
+    fc = 150
+    dt, rc = 3.3 / 1000, 1 / (2*np.pi*fc)
+    plot_stem(axs[1], x_points, lowpass(target, dt, rc), "red", "filtered")
+    axs[1].legend()
+    plt.show()
 
 def main():
     import sys
@@ -351,9 +415,10 @@ def main():
     if len(sys.argv) > 1 and sys.argv[1] == "T":
         testing = True
     
-    test_lowpass()
+    # test_lowpass()
     # test_compression()
-    # test_onsets()
+    test_onsets()
+    # test_smooth()
 
 if __name__ == "__main__":
     main()
