@@ -25,7 +25,7 @@ def monotonic_test():
             num_decreasing 
 x_points, y_points = [], []
 samples = []
-with open(DATA_DIR / "finger-constant-precise.json", "r") as f:
+with open(DATA_DIR / "pick-constant-precise.json", "r") as f:
     samples = json.load(f)
     x_points = [x[0] for x in samples]
     y_points = [x[1] for x in samples]
@@ -95,33 +95,37 @@ def detect_note(testing: bool):
 # https://stackoverflow.com/questions/294468/note-onset-detection
 # this link is super helpful. the top answer is very detailed however I think I just need to adjust 
 # my method a little bit, and actually it seems like a combination of differernt methods I've tried. Will update git.
-def detect_onsets(window_size: int, onset_thresh: int) -> list[tuple[int,int]]:
+def detect_onsets(
+        target: list[int], 
+        window_size: int, 
+        onset_thresh: int, 
+        func: 'function',
+        param: float) -> list[tuple[int,int]]:
     onsets = []
-    avg = y_points[0]
+    avg = target[0]
 
-    low_signal_thresh = 100  # roughly what my guitar sits at when I don't play
+    low_signal_thresh = 80  # roughly what my guitar sits at when I don't play
 
-    n = len(y_points)
+    n = len(target)
 
     # window start, stop, and average
     wstart, wstop = 0, 0
-    wsum = y_points[0]
+    wsum = 0
     while wstop < n:
         # constantly track average low signal
-        if abs(y_points[wstop] - avg) < low_signal_thresh:
-            avg = ((avg * (wstop)) + y_points[wstop]) / max(1, wstop + 1)
+        if abs(target[wstop] - avg) < low_signal_thresh:
+            avg = ((avg * (wstop)) + target[wstop]) / max(1, wstop + 1)
         # fill window
         if wstop - wstart < window_size:
-            wsum += y_points[i]
+            wsum += func(target[wstop], param)
             wstop += 1
         else:
-            wsum += y_points[wstop]
+            wsum += func(target[wstop], param)
             # get average of window
             wavg = wsum / window_size 
             if wavg > avg and wavg > onset_thresh:
-                
                 onsets.append((wstart, wstop))
-            wsum -= y_points[wstart]
+            wsum -= func(target[wstart], param)
             
             # move window
             wstart += 1
@@ -131,8 +135,19 @@ def detect_onsets(window_size: int, onset_thresh: int) -> list[tuple[int,int]]:
     return onsets
 
 
+def compress(x, param:float):
+    sign = -1 if x < 0 else 1
+    norm = abs(x / 4095)
+    norm = 1 - pow(1 - norm, param)
+    return 4095 * norm * sign
+
+def log_compress(x, delta, r):
+    if x <= delta:
+        return x
+    return pow(delta, 1-(1/r)) * pow(x, 1/r)
+    
 def test_detections():
-    detections = detect_note(testing)
+    detections = detect_note()
     
     # # each index is a sample so multiply that by the period ?
     # resolution = 10     # of mcu
@@ -162,19 +177,27 @@ def test_onsets():
     
     bpm = 120
     # roughly the width of a beat, in ms
-    window_size = round(1 / ((bpm / 60) / 1000)) - 200
-    window_size = 0 
-    min_window = 100
+    window_size = round(1 / ((bpm / 60) / 1000))
+
+    # distance between samples is roughly 3.3ms, so ideally this would work but needs to be scaled down
+    window_size /= 3.3
+    window_size /= 2
+
+    min_window = 50
+    def fake_compress(x, y): return x
     window_size = max(min_window, window_size)
 
-    onsets = detect_onsets(window_size, 100)
+    target = samples
+    param = 2.3
+    onsets = detect_onsets(target, min_window, 800, compress, param)
 
-    plt.stem(x_points, y_points, markerfmt=" ")
+    plt.stem(x_points, target, markerfmt=" ")
     starts = [x_points[x[0]] for x in onsets]
     stops = [x_points[x[1]] for x in onsets]
     # plt.vlines(starts, ymin=-4096, ymax=4095, colors="g", alpha=0.4)
     # plt.vlines(stops, ymin=-4096, ymax=4095, colors="r",  alpha=0.4)
-    plt.hlines([y_points[x[0]] for x in onsets], starts, stops, colors="r" )
+    plt.hlines([target[x[0]] for x in onsets], starts, stops, colors="r")
+
     plt.show()
 
 def test_average():
@@ -194,25 +217,29 @@ def test_average():
 
 def test_compression():
     
+    target = samples
     # from https://stackoverflow.com/questions/294468/note-onset-detection#:~:text=Update%3A%20here-,is,-a%20version%20of
     param = 1.5
-    peak_val = 4095
-    compressed = []
-    for i in range(len(y_points)):
-        val = samples[i]
-        sign = -1 if val < 0 else 1
-        norm = abs(val / peak_val)
-        norm = 1 - pow(1 - norm, param)
-        compressed.append(peak_val * sign * norm)
-    x, y, z = plt.stem(x_points, compressed, markerfmt=" ", label="compressed")
-    y.set_color("r")
-    x1,y1,z1 = plt.stem(x_points, samples, markerfmt=" ", label="original")
-    y1.set_color("b")
+    lineard = [compress(x, param) for x in target]
+
+    logd = [log_compress(x, 2048, 3) for x in target]
+
+    fig, axs = plt.subplots(3)
+
+    bits = [[lineard, "linear", "r"], [target, "original", "b"], [logd, "logarithmic", "g"]]
+
+    # stem returnes marker, stem, base
+    for i, ax in enumerate(axs):
+        bit = bits[i]
+        m,s,b = ax.stem(x_points, bit[0], markerfmt=" ", label=bit[1])
+        s.set_color(bit[2])
+        ax.set_ylim((0, 4095))
+        ax.legend()
 
     plt.legend()
     plt.show()
 
-if __name__ == "__main__":
+def main():
     import sys
 
     testing = False
@@ -222,8 +249,6 @@ if __name__ == "__main__":
     test_compression()
     # test_onsets()
 
-    
-
-    
-
+if __name__ == "__main__":
+    main()
     
