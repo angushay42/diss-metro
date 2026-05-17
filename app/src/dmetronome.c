@@ -3,9 +3,6 @@
 #include "dsystime.h"
 #include <libopencm3/stm32/f4/exti.h>
 
-static uint32_t _psc;
-static uint16_t _bpm;
-
 #define ADC_PORT    (GPIOA)
 #define TEMPO_PIN   (GPIO0)
 #define VOLUME_PIN  (GPIO1)
@@ -13,6 +10,8 @@ static uint16_t _bpm;
 #define START_STOP_PORT (GPIOC)
 #define START_STOP_PIN  (GPIO1)
 
+static uint32_t _psc;
+static uint16_t _bpm;
 static uint16_t scale_to_bpm(uint16_t reading);
 
 static uint8_t tempo_group[] = {ADC_CHANNEL0};
@@ -21,6 +20,8 @@ static uint8_t volume_group[] = {ADC_CHANNEL1};
 bool tempo_toggle, tempo_started = false;
 uint64_t last_toggle, debounce_delay = 200; 
 
+
+/*************** ISR handlers ******************/
 void exti1_isr(void) {
     // flag_status is 1 if triggered by selected trigger, 0 otherwise,
     // so only continue if we want to
@@ -46,33 +47,35 @@ void exti1_isr(void) {
     exti_reset_request(EXTI1);
 }
 
-extern error_t dadc_setup(void) {
-    rcc_periph_clock_enable(RCC_ADC1);
-    rcc_periph_clock_enable(RCC_GPIOA);
+/* most recent beat timestamp in ms */
+volatile uint64_t beat_stamp;
 
-    // analog or AF?
-    gpio_mode_setup(ADC_PORT, GPIO_MODE_ANALOG, GPIO_PUPD_NONE, TEMPO_PIN | VOLUME_PIN);
+/* this is the pulse of the metronome*/
+extern void tim4_isr(void) {
+    if (timer_get_flag(TIM4, TIM_SR_UIF)) {
 
-    adc_power_off(ADC1);
-    
-    adc_disable_external_trigger_regular(ADC1);
-    adc_set_right_aligned(ADC1);
-    adc_set_clk_prescale((uint32_t) 1);
+        gpio_set(METRONOME_CH1_PORT, METRONOME_CH1_PIN);
+        // BUG this is very bad...
+        delay_ms(100);
+        gpio_clear(METRONOME_CH1_PORT, METRONOME_CH1_PIN);
 
-    adc_set_single_conversion_mode(ADC1);
-    adc_power_on(ADC1);                              
-    
-    adc_clear_flag(ADC1, ADC_SR_EOC);       // ensure flag is cleared
-    // todo set up interrupts if needed
-
-    return OK;
+        /* make sure to clear flag once done */
+        timer_clear_flag(TIM4, TIM_SR_UIF);
+    }
 }
 
-extern error_t dadc_teardown(void) {
-    adc_power_off(ADC1);
-    rcc_periph_clock_disable(RCC_ADC1);
-    return OK;
+bool beattoggle = false;
+void tim4_isr(void) {
+    if (timer_get_flag(TIM4, TIM_SR_UIF)) {
+        /* if we reset the psc, what if the tempo changes between toggles? */
+    }
+    else if (timer_get_flag(TIM4, TIM_SR_CC1IF)) {
+        
+    }
+
 }
+
+
 
 //todo should this reject invalid readings?
 static uint16_t scale_to_bpm(uint16_t reading) {
@@ -116,9 +119,12 @@ extern error_t dmetro_get_tempo_reading(uint16_t *data, uint16_t cycle_timeout) 
     return OK;
 }
 
+/* time in ms of last time tempo was polled */
 uint64_t last_poll;
+/* flag for starting polling */
 bool poll_started = false;
 
+/* packet used for sending tempo over UART */
 struct packet tempo_pack = {
         .id = "TEMPO",
         .is_signed =false,
@@ -156,37 +162,32 @@ extern error_t dmetro_poll_update(uint64_t poll_period) {
     return OK;
 }
 
-/* read volume measurement from ADC. Returns 0 if successful */
-extern error_t dmetro_get_volume_reading(uint16_t *data) {
-    adc_set_regular_sequence(ADC1, 1, volume_group);
-    adc_start_conversion_regular(ADC1);
-    while (!(adc_eoc(ADC1))); 
-
-    *data = adc_read_regular(ADC1);
-    return OK;
-}
-
 /* get current tempo*/
 extern uint16_t dmetro_get_tempo(void) {
     // safe?
     return _bpm;
 }
 
-/* sets _psc */
-static error_t convert_to_psc(uint16_t bpm) {
-    double input, output, psc;
-    uint32_t temp;
+/** input frequency of the timer peripheral, divided by 65535 (max allowable prescaler). 
+ * This is to help create very low frequency clocks 
+ */
+static const double input = (double) (84000000) / (double) MAX_PSC;
+
+/**
+ * Converts bpm into a prescaler value for the timer. 
+ * Psc will be the value that the timer counts up to (thus dividing the frequency).
+ * Assigns the new value into the value pointed at by psc_ptr
+ * Returns 0 if successful.
+ */
+static error_t convert_to_psc(uint16_t bpm, uint32_t *psc_ptr) {
     if (bpm < MIN_BPM || bpm > MAX_BPM)
         return DMETRO_INVALID_TEMPO;
-
-    // input / output = psc
-    input = (double) (rcc_apb1_frequency * 2) / (double) MAX_PSC;
-    output = (double) bpm / 60.0;
-    psc = roundf(input / output);
-    temp = (uint32_t) psc;
+    uint32_t temp; 
+    
+    temp = (uint32_t) roundf(input / ((double) bpm / 60.0));
     if (temp >= MAX_PSC)
         return DMETRO_INVALID_PSC;
-    _psc = (uint32_t) psc;
+    *psc_ptr = temp;
     return OK;
 }
 
@@ -197,23 +198,25 @@ extern error_t dmetro_set_tempo(uint16_t bpm) {
     if (bpm < MIN_BPM || bpm > MAX_BPM)
         return (err = DMETRO_INVALID_TEMPO);   // error
     
-    
-    if ((err = convert_to_psc(bpm)))
+    /* save previous period */
+    prev_period = _psc;
+    /* convert to a value the timer can use */
+    if ((err = convert_to_psc(bpm, &_psc)))
         return err;
+    /* if no error, we can safely set the new bpm */
     _bpm = bpm;
 
-    prev_period = _psc;
-    // does it need to be -1?
+    /* update the period of the timer */
     timer_set_period(TIM4, _psc);
-    // force an update
+    /* if the counter slips past the new prescale value, we need to reset it*/
     if ((counter = timer_get_counter(TIM4)) > _psc) {
-
+        /* scale the counter according to the previous period */
         timer_set_counter(TIM4, (uint32_t) (counter / prev_period * _psc));
     }
     return OK;
 }
 
-
+/******************* metronome interaction ****************/
 extern void dmetro_start(void) {
     timer_enable_counter(TIM4);
 }
@@ -222,6 +225,7 @@ extern void dmetro_stop(void) {
     timer_disable_counter(TIM4);
 }
 
+/******************* init functions ****************/
 extern error_t dmetro_setup(void) {
     error_t err;
 
@@ -287,19 +291,30 @@ extern error_t dmetro_teardown(void) {
     return OK;
 }
 
-/* most recent beat timestamp in ms */
-volatile uint64_t beat_stamp;
+extern error_t dadc_setup(void) {
+    rcc_periph_clock_enable(RCC_ADC1);
+    rcc_periph_clock_enable(RCC_GPIOA);
 
-/* this is the pulse of the metronome*/
-extern void tim4_isr(void) {
-    if (timer_get_flag(TIM4, TIM_SR_UIF)) {
-        beat_stamp = get_time(true);    // todo how much extra compute time does precise add?
+    // analog or AF?
+    gpio_mode_setup(ADC_PORT, GPIO_MODE_ANALOG, GPIO_PUPD_NONE, TEMPO_PIN | VOLUME_PIN);
 
-        gpio_set(METRONOME_CH1_PORT, METRONOME_CH1_PIN);
-        delay_ms(100);
-        gpio_clear(METRONOME_CH1_PORT, METRONOME_CH1_PIN);
+    adc_power_off(ADC1);
+    
+    adc_disable_external_trigger_regular(ADC1);
+    adc_set_right_aligned(ADC1);
+    adc_set_clk_prescale((uint32_t) 1);
 
-        /* make sure to clear flag once done */
-        timer_clear_flag(TIM4, TIM_SR_UIF);
-    }
+    adc_set_single_conversion_mode(ADC1);
+    adc_power_on(ADC1);                              
+    
+    adc_clear_flag(ADC1, ADC_SR_EOC);       // ensure flag is cleared
+    // todo set up interrupts if needed
+
+    return OK;
+}
+
+extern error_t dadc_teardown(void) {
+    adc_power_off(ADC1);
+    rcc_periph_clock_disable(RCC_ADC1);
+    return OK;
 }

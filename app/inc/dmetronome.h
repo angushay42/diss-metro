@@ -21,19 +21,22 @@
 #define METRONOME_CH2_PIN   (GPIO7)
 
 
+
+extern error_t dmetro_poll_update(uint64_t poll_period);
+
+/*************** metronome interactino ****************/
+extern error_t dmetro_get_tempo_reading(uint16_t *data, uint16_t cycle_timeout);
+extern void dmetro_start(void);
+extern void dmetro_stop(void);
+extern error_t dmetro_set_tempo(uint16_t bpm);
+extern uint16_t dmetro_get_tempo(void);
+
+/*************** init ****************/
+extern error_t dmetro_setup(void);
+extern error_t dmetro_teardown(void);
 extern error_t dadc_setup(void);
 extern error_t dadc_teardown(void);
 
-extern error_t dmetro_get_tempo_reading(uint16_t *data, uint16_t cycle_timeout);
-extern error_t dmetro_get_volume_reading(uint16_t *data);
-extern error_t dmetro_poll_update(uint64_t poll_period);
-
-extern error_t dmetro_setup(void);
-extern error_t dmetro_teardown(void);
-extern error_t dmetro_set_tempo(uint16_t bpm);
-extern uint16_t dmetro_get_tempo(void);
-extern void dmetro_start(void);
-extern void dmetro_stop(void);
 
 extern volatile uint64_t beat_stamp;
 

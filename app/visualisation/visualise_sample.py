@@ -24,6 +24,7 @@ def get_data():
             y_points = [abs(x[1]) for x in raw]
             data[key]["x"] = x_points
             data[key]["y"] = y_points
+            data[key]["sample"] = [x[1] for x in raw]
     return data
 
 def my_key(pair):
@@ -32,7 +33,7 @@ def my_key(pair):
     ans =  parts[-1] + "".join(parts[0:-1])
     return ans
 
-def visualise_all(data):
+def visualise_all(data, target: str):
 
     # params are rows and cols of subplots
     # todo unsure if this is expandable but works for 8 ?
@@ -46,7 +47,7 @@ def visualise_all(data):
     sorted_items = sorted(data.items(), key=my_key)
     for title, points in sorted_items:
         i, j = idx // cols, idx % cols
-        axs[i, j].plot(points["x"], points["y"], )
+        axs[i, j].plot(points["x"], points[target], )
         axs[i, j].set_title(title)
         axs[i, j].set_ylim(-4096, 4095)
         idx += 1
@@ -92,9 +93,11 @@ def visualise_diff(data:dict):
 
 
 def main():
+    target = "y"
+    target = "sample"
     data = get_data()
-    visualise_diff(data)
-    # visualise_all(data)
+    # visualise_diff(data)
+    visualise_all(data, target)
 
 if __name__ == "__main__":
     main()
