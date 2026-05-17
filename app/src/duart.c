@@ -145,12 +145,16 @@ static error_t duart_send(struct packet *p) {
     return OK;
 }
 
-/* blocking writes a byte into byte and returns 0 if successful */
 error_t duart_read(uint16_t *word) {
     error_t err = dring_buf_read(&_rb, word);
     return err;
 }
 
+void usart2_isr(void) {
+    if (usart_get_flag(UART, USART_SR_RXNE)) {
+        error_handle(1);
+    }
+}
 
 
 /***************************** util ***********************/
