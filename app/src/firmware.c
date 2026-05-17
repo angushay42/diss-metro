@@ -87,49 +87,131 @@ static void send_stamped_sample(void) {
     // duart_send_packet(&samplep);
 }
 
+#define TEST_LED_PORT (GPIOB)
+#define TEST_LED_PIN (GPIO6)
+
+double start_freq;
+uint32_t bpm;
+uint32_t pulse_period;
+uint32_t pulse_psc;
+uint32_t bpm_psc;
+
+static error_t minimal_timer_setup(void) {
+    rcc_periph_clock_enable(RCC_TIM3);
+    rcc_periph_clock_enable(RCC_GPIOB);
+    nvic_enable_irq(NVIC_TIM3_IRQ);
+
+
+    gpio_mode_setup(TEST_LED_PORT, GPIO_MODE_OUTPUT, GPIO_PUPD_PULLDOWN, TEST_LED_PIN);
+    // set to 0 to start with
+    gpio_clear(TEST_LED_PORT, TEST_LED_PIN);
+
+    timer_disable_counter(TIM3);
+    timer_set_mode(
+        TIM3,
+        TIM_CR1_CKD_CK_INT_MUL_4,
+        TIM_CR1_CMS_EDGE,
+        TIM_CR1_DIR_UP
+    );
+
+    timer_set_prescaler(TIM3, 65535);
+
+    timer_disable_preload(TIM3);
+    timer_continuous_mode(TIM3);
+
+    start_freq = 84000000.0 / 65535.0;
+    bpm = 120;
+    bpm_psc = (uint32_t) (start_freq / ((double) bpm / 60.0));
+    pulse_period = 100;  // ms
+    pulse_psc = (uint32_t) (start_freq / ((uint32_t) (1.0 / (pulse_period / 1000.0))));
+
+    // convert bpm to hz ( divide by 60) then divide start freq by desired frequency to get prescale
+    timer_set_period(TIM3, bpm_psc);
+    // should just be overflow
+    timer_enable_irq(TIM3, TIM_DIER_UIE);
+    timer_enable_irq(TIM3, TIM_DIER_CC1IE);
+    timer_enable_counter(TIM3);
+
+    return OK;
+}
+
+
+
+void tim3_isr(void) {
+    if (timer_get_flag(TIM3, TIM_SR_UIF)) {
+        // gpio_toggle(TEST_LED_PORT, TEST_LED_PIN);
+        gpio_set(TEST_LED_PORT, TEST_LED_PIN);
+        
+        timer_enable_oc_output(TIM3, TIM_OC1);
+        // uint32_t temp = (timer_get_counter(TIM3) + pulse_psc) % bpm_psc;
+        timer_set_oc_value(TIM3, TIM_OC1, pulse_psc);
+
+        timer_clear_flag(TIM3, TIM_SR_UIF);
+    }
+    else if (timer_get_flag(TIM3, TIM_SR_CC1IF)) {
+        gpio_clear(TEST_LED_PORT, TEST_LED_PIN);
+        timer_disable_oc_output(TIM3, TIM_OC1);
+        timer_clear_flag(TIM3, TIM_SR_CC1IF);
+    }
+}
+
 int main(void) {
     rcc_setup();
     error_t err;
-    
     rcc_periph_clock_enable(RCC_GPIOC);
     gpio_mode_setup(ERROR_LED_PORT, GPIO_MODE_OUTPUT, GPIO_PUPD_PULLDOWN, ERROR_LED_PIN);
     gpio_clear(ERROR_LED_PORT, ERROR_LED_PIN);
-    
-    if ((err = dspi_setup())) {
-        error_handle(err);
-        return err;
-    }
-    if ((err = duart_setup())) {
-        error_handle(err);
-        return err;
-    }
-    if ((err = dmetro_setup())) {
-        error_handle(err);
-        return err;
-    }
 
-    if ((err = sys_setup(10)))
+    if ((err  =minimal_timer_setup()))
         return error_handle(err);
-    
-    nvic_set_priority(NVIC_TIM4_IRQ, 1);
-    nvic_set_priority(NVIC_SYSTICK_IRQ, 2);
-    
-    size_t sample_idx, sample_size, max_size;
-    max_size = 64;
-    uint64_t note_stamp, next_beat, now, listening_period;
-    short samples[max_size], sample;
-    bool ans;
-
-    listening_period = 50; // ms
-    sample_size = 10;       
-
     while (1) {
-        // dspi_rcv(&sample);
-        // send_stamped_sample();
-
-        // duart_send_packet(&samples_pack);
-        // *stamps = get_time(false);
-        dmetro_poll_update((uint64_t) 250); 
+        ; // do nothing
     }
-    return 0;
 }
+
+// int main(void) {
+//     rcc_setup();
+//     error_t err;
+    
+//     rcc_periph_clock_enable(RCC_GPIOC);
+//     gpio_mode_setup(ERROR_LED_PORT, GPIO_MODE_OUTPUT, GPIO_PUPD_PULLDOWN, ERROR_LED_PIN);
+//     gpio_clear(ERROR_LED_PORT, ERROR_LED_PIN);
+    
+//     if ((err = dspi_setup())) {
+//         error_handle(err);
+//         return err;
+//     }
+//     if ((err = duart_setup())) {
+//         error_handle(err);
+//         return err;
+//     }
+//     if ((err = dmetro_setup())) {
+//         error_handle(err);
+//         return err;
+//     }
+
+//     if ((err = sys_setup(10)))
+//         return error_handle(err);
+    
+//     nvic_set_priority(NVIC_TIM4_IRQ, 1);
+//     nvic_set_priority(NVIC_SYSTICK_IRQ, 2);
+    
+//     size_t sample_idx, sample_size, max_size;
+//     max_size = 64;
+//     uint64_t note_stamp, next_beat, now, listening_period;
+//     short samples[max_size], sample;
+//     bool ans;
+
+//     listening_period = 50; // ms
+//     sample_size = 10;       
+
+//     while (1) {
+//         // dspi_rcv(&sample);
+//         // send_stamped_sample();
+
+//         // duart_send_packet(&samples_pack);
+//         // *stamps = get_time(false);
+//         dmetro_poll_update((uint64_t) 250); 
+//     }
+//     return 0;
+// }

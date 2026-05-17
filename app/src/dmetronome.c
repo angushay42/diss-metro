@@ -87,10 +87,10 @@ void tim4_isr(void) {
         /* turn LED on*/
         gpio_set(METRONOME_CH1_PORT, METRONOME_CH1_PIN);
 
-        timer_enable_oc_output(TIM4, TIM_OC1);
+        // timer_enable_oc_output(TIM4, TIM_OC1);
 
-        /* use Output Compare to turn the LED off after pulse_period ms */
-        timer_set_oc_value(TIM4, TIM_OC1, pulse_psc);
+        // /* use Output Compare to turn the LED off after pulse_period ms */
+        // timer_set_oc_value(TIM4, TIM_OC1, pulse_psc);
 
         /* clear flag */
         timer_clear_flag(TIM4, TIM_SR_UIF);
@@ -101,6 +101,7 @@ void tim4_isr(void) {
         // delay_ms(100);
         // gpio_clear(ERROR_LED_PORT, ERROR_LED_PIN);
         /* turn LED off*/
+        gpio_set(ERROR_LED_PORT, ERROR_LED_PIN);
         gpio_clear(METRONOME_CH1_PORT, METRONOME_CH1_PIN);
         /* disable output compare */
         timer_disable_oc_output(TIM4, TIM_OC1);
@@ -294,7 +295,7 @@ extern error_t dmetro_setup(void) {
     if ((err = dmetro_set_tempo(BPM_START)))
         return err; 
 
-    timer_enable_irq(TIM4, TIM_DIER_UIE);    // update on full count
+    timer_enable_irq(TIM4, TIM_DIER_UIE);
 
     gpio_mode_setup(
         METRONOME_CH1_PORT, 
