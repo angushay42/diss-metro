@@ -84,25 +84,24 @@ void tim4_isr(void) {
     /* this interrupt should trigger ON the pulse. */
     if (timer_get_flag(TIM4, TIM_SR_UIF)) {
         beat_stamp = get_time(true);
+        
         /* turn LED on*/
         gpio_set(METRONOME_CH1_PORT, METRONOME_CH1_PIN);
 
-        // timer_enable_oc_output(TIM4, TIM_OC1);
+        /* enable output compare for pulsing the LED */
+        timer_enable_oc_output(TIM4, TIM_OC1);
 
         // /* use Output Compare to turn the LED off after pulse_period ms */
-        // timer_set_oc_value(TIM4, TIM_OC1, pulse_psc);
+        timer_set_oc_value(TIM4, TIM_OC1, pulse_psc);
 
         /* clear flag */
         timer_clear_flag(TIM4, TIM_SR_UIF);
     }
     /* this interrupt should trigger 100ms AFTER the pulse. */
     else if (timer_get_flag(TIM4, TIM_SR_CC1IF)) {
-        // gpio_set(ERROR_LED_PORT, ERROR_LED_PIN);
-        // delay_ms(100);
-        // gpio_clear(ERROR_LED_PORT, ERROR_LED_PIN);
-        /* turn LED off*/
-        gpio_set(ERROR_LED_PORT, ERROR_LED_PIN);
+        /* turn LED off */
         gpio_clear(METRONOME_CH1_PORT, METRONOME_CH1_PIN);
+        
         /* disable output compare */
         timer_disable_oc_output(TIM4, TIM_OC1);
 
@@ -295,7 +294,12 @@ extern error_t dmetro_setup(void) {
     if ((err = dmetro_set_tempo(BPM_START)))
         return err; 
 
+    /* update interupt is overflow */
     timer_enable_irq(TIM4, TIM_DIER_UIE);
+
+    /* cc is compare/capture, in this case output compare. */
+    timer_enable_irq(TIM4, TIM_DIER_CC1IE);
+    
 
     gpio_mode_setup(
         METRONOME_CH1_PORT, 

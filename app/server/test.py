@@ -415,14 +415,14 @@ def main():
     if len(sys.argv) > 1 and sys.argv[1] == "T":
         testing = True
     
-    fig, ax = plt.subplots()
-    target = y_points
-    plot_stem(ax, x_points, target, "teal", "original")
-    ax.legend()
-    plt.show()
+    # fig, ax = plt.subplots()
+    # target = y_points
+    # plot_stem(ax, x_points, target, "teal", "original")
+    # ax.legend()
+    # plt.show()
     # test_lowpass()
     # test_compression()
-    # test_onsets()
+    test_onsets()
     # test_smooth()
 
 if __name__ == "__main__":
