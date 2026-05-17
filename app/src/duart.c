@@ -150,11 +150,13 @@ error_t duart_read(uint16_t *word) {
     return err;
 }
 
-void usart2_isr(void) {
-    if (usart_get_flag(UART, USART_SR_RXNE)) {
-        error_handle(1);
-    }
-}
+/************************* interrupts *********************/
+// void usart2_isr(void) {
+//     gpio_set(ERROR_LED_PORT, ERROR_LED_PIN);
+//     if (usart_get_flag(UART, USART_FLAG_RXNE)) {
+//         error_handle(1);
+//     }
+// }
 
 
 /***************************** util ***********************/
@@ -181,9 +183,8 @@ error_t duart_setup(void) {
     usart_set_stopbits(UART, 1);
     usart_set_parity(UART, USART_PARITY_NONE);
 
-    // usart_enable_rx_interrupt(UART);
-    
-
+    usart_enable_rx_interrupt(UART);
+    nvic_enable_irq(NVIC_USART2_IRQ);
 
     gpio_set_af(UART_PORT, UART_AF_MODE, UART_TX_PIN | UART_RX_PIN);
     gpio_mode_setup(UART_PORT, GPIO_MODE_AF, GPIO_PUPD_PULLDOWN, UART_TX_PIN | UART_RX_PIN);

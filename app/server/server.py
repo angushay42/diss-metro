@@ -66,12 +66,16 @@ class UART:
         
         return
 
-    def send(self, data):
-        # todo validate length is 0-255
+    def send(self, data: list[int|float], size: 2, is_signed:bool=False, is_float:bool=False):
+        # todo data length
+
         # convert data to format 
+        packet = self.manager.get_packet(size, data, is_signed, is_float)
+        
         # write to port
-        raise NotImplementedError
-        pass
+        n = self.stream.write(packet)
+        return n
+
 
     def get_flag(self, strict: bool = False) -> int:
         """Wait until flag is fond, then return it."""
@@ -406,27 +410,24 @@ class MockSerial:
 
 
 def main():
-    args = sys.argv[1:]
+    start = time.time()
+    server = UART(0)
 
-    # obj = {
-    #     "time": {
-    #         "start":    start,
-    #         "end":      end,
-    #         "diff":     end - start
-    #     },
-    #     "data": data
-    # }
-    # with open(file_name, "w") as f:
-    #     json.dump(obj, f, indent=2)
+    
+    try:
+        while True:
+            n = server.send([1], 1)
+            print(n)
+    except KeyboardInterrupt:
+        pass
+
+    server.shutdown()
+    
+    end = time.time()
+    print(end - start)
     print("done!")
 
 
 if __name__ == "__main__":
-    start = time.time()
-    server = UART(0)
-    server.main()
-    end = time.time()
-    print(end - start)
-    # with open("test.json", "r") as f:
-
+    main()
     

@@ -186,7 +186,7 @@ extern error_t dmetro_poll_update(uint64_t poll_period) {
             /* update tempo if necessary */
         if (reading != dmetro_get_tempo()) {
             dmetro_set_tempo(reading);
-            duart_send_packet(&tempo_pack);
+            // duart_send_packet(&tempo_pack);
         }
     }
     return OK;
