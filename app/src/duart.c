@@ -6,7 +6,7 @@ static uint16_t _buffer[RING_BUF_MAX];
 static ring_buf_t _rb;
 uint8_t count = 0;
 
-
+/* static prototypes */
 static void duart_enable(void);
 static void duart_disable(void);
 static error_t duart_send(struct packet *p);
@@ -145,79 +145,12 @@ static error_t duart_send(struct packet *p) {
     return OK;
 }
 
-/******************** Archived ********************/
-
-extern error_t duart_write_bytes(char *data) {
-    duart_enable();
-    // copy ptr
-    char *ptr = data;
-    while (*ptr) {
-        usart_send_blocking(UART, (uint8_t) *ptr);
-        usart_send_blocking(UART, (uint8_t) (*ptr >> 8));
-        ptr++;
-    }
-    duart_disable();
-    return OK;
-
-}
-
-extern error_t duart_write_byte(char data) {
-    duart_enable();
-    usart_send_blocking(UART, (uint8_t) data);
-    duart_disable();
-
-    return OK;
-}
-
-/* sends an array over UART with blocking */
-extern error_t duart_write_many(uint16_t *data) {
-    duart_enable();
-
-    // copy ptr
-    uint16_t *ptr = data;
-    while (*ptr) {
-        usart_send_blocking(UART, (uint8_t) *ptr++);
-    }
-    duart_disable();
-
-    return OK;
-}
-
-extern error_t duart_start_sequence(uint8_t flag) {
-    // uint8_t temp1, temp2;
-    // temp1 = 1 << (fsigned -1);
-    // temp1 = ~temp1;
-    // temp2 = temp1 & flag;
-    // uint8_t size = ~(1 << (fsigned)-1) & flag;
-    uint8_t size = flag;
-    if (size == 0 || size == 3 || (size > 4 && size < 8) || size > 8)
-        return DUART_START_SEQUENCE;
-    duart_enable();
-    for (size_t i = 0; i < 3; i++)
-        duart_write_byte(flag);
-    duart_disable();
-    
-    return OK;
-}   
-
-/* sends 1 byte over UART with blocking */
-extern error_t duart_write_once(uint16_t data) {
-    duart_enable();
-
-    // split 16bit to two bytes
-    usart_send_blocking(UART, (uint8_t) data);
-    usart_send_blocking(UART, (uint8_t) (data >> 8));
-    duart_disable();
-
-    return OK;
-}
-
 /* blocking writes a byte into byte and returns 0 if successful */
 error_t duart_read(uint16_t *word) {
     error_t err = dring_buf_read(&_rb, word);
     return err;
 }
-/******************** endblock ********************/
+
 
 
 /***************************** util ***********************/
@@ -229,6 +162,7 @@ static void duart_disable(void) {
     // USART2_CR1 &= ~USART_CR1_TE; // disable?
 }
 
+/********************* init functions ********************/
 /* adapted from https://github.com/lowbyteproductions/bare-metal-series */
 error_t duart_setup(void) {
     rcc_periph_clock_enable(RCC_USART2);
@@ -244,33 +178,7 @@ error_t duart_setup(void) {
     usart_set_parity(UART, USART_PARITY_NONE);
 
     // usart_enable_rx_interrupt(UART);
-    // usart_enable_tx_interrupt(UART);
-    // nvic_enable_irq(NVIC_USART2_IRQ);
-    // usart_disable_tx_interrupt(UART);
-    // usart_disable_tx_complete_interrupt(UART);
     
-    // print out the control register interrupts to see if any are set?
-    // PEIE
-    // TXEIE
-    // TCIE
-    // RXNEIE
-    // IDLEIE
-    // CTSIE
-    // EIE
-    // if (USART2_CR1 & USART_CR1_PEIE)
-    //     error_handle(1);
-    // if (USART2_CR1 & USART_CR1_TXEIE)
-    //     error_handle(2);
-    // if (USART2_CR1 & USART_CR1_TCIE)
-    //     error_handle(3);
-    // if (USART2_CR1 & USART_CR1_RXNEIE)
-    //     error_handle(4);
-    // if (USART2_CR1 & USART_CR1_IDLEIE)
-    //     error_handle(5);
-    // if (USART2_CR3 & USART_CR3_CTSIE)
-    //     error_handle(6);
-    // if (USART2_CR3 & USART_CR3_EIE)
-    //     error_handle(7);
 
 
     gpio_set_af(UART_PORT, UART_AF_MODE, UART_TX_PIN | UART_RX_PIN);
