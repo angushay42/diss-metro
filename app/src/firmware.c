@@ -125,11 +125,11 @@ int main(void) {
 
     while (1) {
         // dspi_rcv(&sample);
-        send_stamped_sample();
+        // send_stamped_sample();
 
         // duart_send_packet(&samples_pack);
         // *stamps = get_time(false);
-        // dmetro_poll_update((uint64_t) 250); 
+        dmetro_poll_update((uint64_t) 250); 
     }
     return 0;
 }

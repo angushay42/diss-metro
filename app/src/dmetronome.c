@@ -10,15 +10,47 @@
 #define START_STOP_PORT (GPIOC)
 #define START_STOP_PIN  (GPIO1)
 
-static uint32_t _psc;
-static uint16_t _bpm;
+/*********** prototypes *************/
 static uint16_t scale_to_bpm(uint16_t reading);
 
+
+
+/*********** global variables *************/
+/* private reference to the current timer prescaler value */
+static uint32_t _psc;
+/* private reference to the current bpm of the metronome */
+static uint16_t _bpm;
+
+/* adc reads groups of channels, in this case we just need one for each reading. */
+/* array of channels to read from ADC for the tempo measurement */
 static uint8_t tempo_group[] = {ADC_CHANNEL0};
+/* array of channels to read from the ADC for volume */
 static uint8_t volume_group[] = {ADC_CHANNEL1};
 
+/* flags used for stopping and starting the metronome with a push button */
 bool tempo_toggle, tempo_started = false;
+
+/* time in ms of last button toggle*/
 uint64_t last_toggle, debounce_delay = 200; 
+
+/* most recent timestamp (in ms) of the tempo pulse. */
+volatile uint64_t beat_stamp;
+
+/* time in ms of last time tempo was polled */
+uint64_t last_poll;
+/* flag for starting polling */
+bool poll_started = false;
+
+/** input frequency of the timer peripheral, divided by 65535 (max allowable prescaler). 
+ * This is to help create very low frequency clocks 
+ */
+static const double input = (double) (84000000) / (double) MAX_PSC;
+
+/* time in ms for LED pulse */
+static const uint32_t pulse_period = 100;
+
+/* Prescaler value for the LED pulse */
+static const uint32_t pulse_psc = (uint32_t) (input / (1.0 / ((double) pulse_period / 1000.0)));
 
 
 /*************** ISR handlers ******************/
@@ -47,30 +79,33 @@ void exti1_isr(void) {
     exti_reset_request(EXTI1);
 }
 
-/* most recent beat timestamp in ms */
-volatile uint64_t beat_stamp;
 
-/* this is the pulse of the metronome*/
-extern void tim4_isr(void) {
+void tim4_isr(void) {
+    /* this interrupt should trigger ON the pulse. */
     if (timer_get_flag(TIM4, TIM_SR_UIF)) {
-
+        beat_stamp = get_time(true);
+        /* turn LED on*/
         gpio_set(METRONOME_CH1_PORT, METRONOME_CH1_PIN);
-        // BUG this is very bad...
-        delay_ms(100);
-        gpio_clear(METRONOME_CH1_PORT, METRONOME_CH1_PIN);
 
-        /* make sure to clear flag once done */
+        timer_enable_oc_output(TIM4, TIM_OC1);
+
+        /* use Output Compare to turn the LED off after pulse_period ms */
+        timer_set_oc_value(TIM4, TIM_OC1, pulse_psc);
+
+        /* clear flag */
         timer_clear_flag(TIM4, TIM_SR_UIF);
     }
-}
-
-bool beattoggle = false;
-void tim4_isr(void) {
-    if (timer_get_flag(TIM4, TIM_SR_UIF)) {
-        /* if we reset the psc, what if the tempo changes between toggles? */
-    }
+    /* this interrupt should trigger 100ms AFTER the pulse. */
     else if (timer_get_flag(TIM4, TIM_SR_CC1IF)) {
-        
+        // gpio_set(ERROR_LED_PORT, ERROR_LED_PIN);
+        // delay_ms(100);
+        // gpio_clear(ERROR_LED_PORT, ERROR_LED_PIN);
+        /* turn LED off*/
+        gpio_clear(METRONOME_CH1_PORT, METRONOME_CH1_PIN);
+        /* disable output compare */
+        timer_disable_oc_output(TIM4, TIM_OC1);
+
+        timer_clear_flag(TIM4, TIM_SR_CC1IF);
     }
 
 }
@@ -119,11 +154,6 @@ extern error_t dmetro_get_tempo_reading(uint16_t *data, uint16_t cycle_timeout) 
     return OK;
 }
 
-/* time in ms of last time tempo was polled */
-uint64_t last_poll;
-/* flag for starting polling */
-bool poll_started = false;
-
 /* packet used for sending tempo over UART */
 struct packet tempo_pack = {
         .id = "TEMPO",
@@ -168,10 +198,7 @@ extern uint16_t dmetro_get_tempo(void) {
     return _bpm;
 }
 
-/** input frequency of the timer peripheral, divided by 65535 (max allowable prescaler). 
- * This is to help create very low frequency clocks 
- */
-static const double input = (double) (84000000) / (double) MAX_PSC;
+
 
 /**
  * Converts bpm into a prescaler value for the timer. 
