@@ -240,7 +240,6 @@ int main(void) {
         return error_handle(err);
     
     nvic_set_priority(NVIC_TIM4_IRQ, 2);
-    nvic_set_priority(NVIC_SYSTICK_IRQ, 3);
     nvic_set_priority(NVIC_USART2_IRQ, 1);
     
     size_t sample_idx, sample_size, max_size;

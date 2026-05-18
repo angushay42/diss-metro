@@ -3,6 +3,7 @@
 
 #include "dringbuffer.h"
 #include "common-defines.h"
+#include "dsystime.h"
 
 #include "dependencies.h"
 #include <libopencm3/stm32/usart.h>
@@ -30,6 +31,12 @@
 
 /* minimum size a ringbuffer needs to have to fit a packet. */
 #define MIN_PACKET_BUFFER_SIZE (1 << 10)
+
+#define PACKET_START    ((uint8_t)'{')
+#define PACKET_STOP     ((uint8_t)'}')
+
+/* flag for superloop to read the packet in the buffer */
+extern volatile bool packet_found;
 
 // adapted from https://stackoverflow.com/a/44611722
 struct packet {

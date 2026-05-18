@@ -6,6 +6,12 @@ static uint16_t _buffer[RING_BUF_MAX];
 static ring_buf_t _rb;
 uint8_t count = 0;
 
+bool packet_found = false;
+static bool packet_started = false;
+
+/* private timestamp of last time packet was polled*/
+static uint64_t last_poll_packet = 0;
+
 /* static prototypes */
 static void duart_enable(void);
 static void duart_disable(void);
@@ -19,7 +25,6 @@ static error_t duart_send_64(struct packet *p);
  * it could be beneficial to "flatten" data I want to send and then just cycle it out.
  * i.e. each packet gets flattened to an identical format of bytes to be sent over uart?
  */
-
 static error_t duart_send_8(struct packet *p) {
     uint8_t *ptr, temp;
     ptr = (*p).u;
@@ -145,24 +150,50 @@ static error_t duart_send(struct packet *p) {
     return OK;
 }
 
-error_t duart_read(uint16_t *word) {
-    error_t err = dring_buf_read(&_rb, word);
-    return err;
+extern error_t duart_poll_packet(struct packet *p, uint64_t poll_period, bool *found) {
+    /* get current time */
+    uint64_t now = get_time(true);
+
+    /* if packet was found, write it into packet */
+    if (packet_found && (now - last_poll_packet) >= poll_period) {
+        *found = true;
+        /* write packet from buffer */
+        /* TODO */
+    }
+    *found = false;
+    return OK;
 }
+
+/* detect packet pseudo code */
+/*
+buffer = array
+while true:
+    byte = read()
+    if byte is start:
+        mark as a potential start
+        save to buffer
+        continue
+    if potential start exists
+        save to buffer
+    if byte is stop:
+        foreach start in potential starts:
+            packet = array from start to now
+            if packet is valid:
+                save packet 
+                return true
+
+*/
 
 /************************* interrupts *********************/
 void usart2_isr(void) {
-    gpio_set(ERROR_LED_PORT, ERROR_LED_PIN);
-    delay_ms(100);
-    gpio_clear(ERROR_LED_PORT, ERROR_LED_PIN);
     if (usart_get_flag(USART2, USART_FLAG_RXNE)) {
-        gpio_set(ERROR_LED_PORT, ERROR_LED_PIN);
-        delay_ms(100);
-        gpio_clear(ERROR_LED_PORT, ERROR_LED_PIN);
-        uint16_t data = USART2_DR;
-        // dring_buf_write(&_rb, usart_recv(USART2));
+        /* read from buffer, clearing the flag also. */
+        uint8_t data = (uint8_t) usart_recv(USART2);
+        if (data == PACKET_START)
+            /* set flag that packet needs to be checked. */
+            packet_started = true;
+        dring_buf_write(&_rb, data);
     }
-
 }
 
 
