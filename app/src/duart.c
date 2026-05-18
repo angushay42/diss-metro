@@ -151,12 +151,16 @@ error_t duart_read(uint16_t *word) {
 }
 
 /************************* interrupts *********************/
-// void usart2_isr(void) {
-//     gpio_set(ERROR_LED_PORT, ERROR_LED_PIN);
-//     if (usart_get_flag(UART, USART_FLAG_RXNE)) {
-//         error_handle(1);
-//     }
-// }
+void usart2_isr(void) {
+    if (usart_get_flag(USART2, USART_FLAG_RXNE)) {
+        gpio_set(ERROR_LED_PORT, ERROR_LED_PIN);
+        delay_ms(100);
+        gpio_clear(ERROR_LED_PORT, ERROR_LED_PIN);
+        
+        /* clear flag for now */
+        uint16_t data = USART2_DR;
+    }
+}
 
 
 /***************************** util ***********************/
@@ -171,11 +175,18 @@ static void duart_disable(void) {
 /********************* init functions ********************/
 /* adapted from https://github.com/lowbyteproductions/bare-metal-series */
 error_t duart_setup(void) {
+    /* enable clock to the peripheral */
     rcc_periph_clock_enable(RCC_USART2);
     rcc_periph_clock_enable(RCC_GPIOA);
 
+    /* configure gpio pins*/
+    gpio_set_af(UART_PORT, UART_AF_MODE, UART_TX_PIN | UART_RX_PIN);
+    gpio_mode_setup(UART_PORT, GPIO_MODE_AF, GPIO_PUPD_PULLDOWN, UART_TX_PIN | UART_RX_PIN);
+
+    /* disble first */
     usart_disable(UART);
 
+    /* config */
     usart_set_mode(UART, USART_MODE_TX_RX);   // duplex
     usart_set_flow_control(UART, USART_FLOWCONTROL_NONE);
     usart_set_baudrate(UART, UART_BAUD_RATE);
@@ -183,14 +194,15 @@ error_t duart_setup(void) {
     usart_set_stopbits(UART, 1);
     usart_set_parity(UART, USART_PARITY_NONE);
 
+    /* enable rx interrupt on the USART and in NVIC */
     usart_enable_rx_interrupt(UART);
     nvic_enable_irq(NVIC_USART2_IRQ);
 
-    gpio_set_af(UART_PORT, UART_AF_MODE, UART_TX_PIN | UART_RX_PIN);
-    gpio_mode_setup(UART_PORT, GPIO_MODE_AF, GPIO_PUPD_PULLDOWN, UART_TX_PIN | UART_RX_PIN);
-    
+    /* clear flag in case */
+    uint16_t data = USART2_DR;
+
+    /* finally enable*/
     usart_enable(UART);
-    duart_enable();
 
     // set up buffer
     error_t err = dring_buf_setup(&_rb, _buffer, RING_BUF_MAX);

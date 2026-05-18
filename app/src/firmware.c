@@ -188,77 +188,74 @@ static error_t minimal_uart_setup(void) {
     return OK;
 }
 
-void usart2_isr(void) {
-    gpio_set(ERROR_LED_PORT, ERROR_LED_PIN);
-    delay_ms(100);
-    gpio_clear(ERROR_LED_PORT, ERROR_LED_PIN);
-    uint16_t data = USART2_DR;
-}
 
-int main(void) {
-    rcc_setup();
-    error_t err;
-    rcc_periph_clock_enable(RCC_GPIOC);
-    gpio_mode_setup(ERROR_LED_PORT, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, ERROR_LED_PIN);
-    gpio_clear(ERROR_LED_PORT, ERROR_LED_PIN);
 
-    volatile uint16_t data;
-    if ((err = minimal_uart_setup()))
-        return error_handle(err);
-    while (1) {
-        // while (usart_get_flag(USART2, USART_FLAG_RXNE) != 1)
-        //     ;
-        // data = usart_recv(USART2);
-        // usart_send_blocking(USART2, (uint16_t) 'A');
-        // data = usart_recv_blocking(USART2);
-        ; // do nothing
-    }
-}
+
 
 // int main(void) {
 //     rcc_setup();
 //     error_t err;
-    
 //     rcc_periph_clock_enable(RCC_GPIOC);
-//     gpio_mode_setup(ERROR_LED_PORT, GPIO_MODE_OUTPUT, GPIO_PUPD_PULLDOWN, ERROR_LED_PIN);
+//     gpio_mode_setup(ERROR_LED_PORT, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, ERROR_LED_PIN);
 //     gpio_clear(ERROR_LED_PORT, ERROR_LED_PIN);
-    
-//     if ((err = dspi_setup())) {
-//         error_handle(err);
-//         return err;
-//     }
-//     if ((err = duart_setup())) {
-//         error_handle(err);
-//         return err;
-//     }
-//     if ((err = dmetro_setup())) {
-//         error_handle(err);
-//         return err;
-//     }
 
-//     if ((err = sys_setup(10)))
+//     volatile uint16_t data;
+//     if ((err = minimal_uart_setup()))
 //         return error_handle(err);
-    
-//     nvic_set_priority(NVIC_TIM4_IRQ, 1);
-//     nvic_set_priority(NVIC_SYSTICK_IRQ, 2);
-//     nvic_set_priority(NVIC_USART2_IRQ, 1);
-    
-//     size_t sample_idx, sample_size, max_size;
-//     max_size = 64;
-//     uint64_t note_stamp, next_beat, now, listening_period;
-//     short samples[max_size], sample;
-//     bool ans;
-
-//     listening_period = 50; // ms
-//     sample_size = 10;       
-
 //     while (1) {
-//         // dspi_rcv(&sample);
-//         // send_stamped_sample();
-
-//         // duart_send_packet(&samples_pack);
-//         // *stamps = get_time(false);
-//         dmetro_poll_update((uint64_t) 250); 
+//         // while (usart_get_flag(USART2, USART_FLAG_RXNE) != 1)
+//         //     ;
+//         // data = usart_recv(USART2);
+//         // usart_send_blocking(USART2, (uint16_t) 'A');
+//         // data = usart_recv_blocking(USART2);
+//         ; // do nothing
 //     }
-//     return 0;
 // }
+
+int main(void) {
+    rcc_setup();
+    error_t err;
+    
+    rcc_periph_clock_enable(RCC_GPIOC);
+    gpio_mode_setup(ERROR_LED_PORT, GPIO_MODE_OUTPUT, GPIO_PUPD_PULLDOWN, ERROR_LED_PIN);
+    gpio_clear(ERROR_LED_PORT, ERROR_LED_PIN);
+    
+    if ((err = dspi_setup())) {
+        error_handle(err);
+        return err;
+    }
+    if ((err = duart_setup())) {
+        error_handle(err);
+        return err;
+    }
+    if ((err = dmetro_setup())) {
+        error_handle(err);
+        return err;
+    }
+
+    if ((err = sys_setup(10)))
+        return error_handle(err);
+    
+    nvic_set_priority(NVIC_TIM4_IRQ, 1);
+    nvic_set_priority(NVIC_SYSTICK_IRQ, 2);
+    nvic_set_priority(NVIC_USART2_IRQ, 1);
+    
+    size_t sample_idx, sample_size, max_size;
+    max_size = 64;
+    uint64_t note_stamp, next_beat, now, listening_period;
+    short samples[max_size], sample;
+    bool ans;
+
+    listening_period = 50; // ms
+    sample_size = 10;       
+
+    while (1) {
+        // dspi_rcv(&sample);
+        // send_stamped_sample();
+
+        // duart_send_packet(&samples_pack);
+        // *stamps = get_time(false);
+        dmetro_poll_update((uint64_t) 250); 
+    }
+    return 0;
+}
