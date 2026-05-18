@@ -3,9 +3,9 @@
 
 #include "common-defines.h"
 
-//todo cross platform for testing?
+// this is tying the ringbuffer to my protocol, but that is fine for now.
+#define RING_BUF_MAX (1 << 11)      // benchmark this
 
-#define RING_BUF_MAX (128)      // benchmark this
 
 /*********** ringbuffer  *************/
 typedef struct ring_buf_t {

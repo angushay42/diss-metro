@@ -152,14 +152,17 @@ error_t duart_read(uint16_t *word) {
 
 /************************* interrupts *********************/
 void usart2_isr(void) {
+    gpio_set(ERROR_LED_PORT, ERROR_LED_PIN);
+    delay_ms(100);
+    gpio_clear(ERROR_LED_PORT, ERROR_LED_PIN);
     if (usart_get_flag(USART2, USART_FLAG_RXNE)) {
         gpio_set(ERROR_LED_PORT, ERROR_LED_PIN);
         delay_ms(100);
         gpio_clear(ERROR_LED_PORT, ERROR_LED_PIN);
-        
-        /* clear flag for now */
         uint16_t data = USART2_DR;
+        // dring_buf_write(&_rb, usart_recv(USART2));
     }
+
 }
 
 
@@ -205,7 +208,7 @@ error_t duart_setup(void) {
     usart_enable(UART);
 
     // set up buffer
-    error_t err = dring_buf_setup(&_rb, _buffer, RING_BUF_MAX);
+    error_t err = dring_buf_setup(&_rb, _buffer, MIN_PACKET_BUFFER_SIZE);
     return err;
 }
 

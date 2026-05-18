@@ -1,8 +1,6 @@
 #include "dringbuffer.h"
 
 
-#define RING_BUF_MAX (128)
-
 /* initialise ring buffer. returns 0 if successful */
 extern error_t dring_buf_setup(ring_buf_t* rb, uint16_t* buffer, uint32_t size) {
     // check if size is a power of 2

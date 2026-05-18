@@ -412,10 +412,15 @@ class MockSerial:
 def main():
     start = time.time()
     server = UART(0)
-
-    
+    delay = 100 / 1000
+    last = None
     try:
         while True:
+            now = time.time()
+            if last and now - last < delay:
+                continue
+            else:
+                last = now
             n = server.send([1], 1)
             print(n)
     except KeyboardInterrupt:

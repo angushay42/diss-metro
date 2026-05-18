@@ -20,6 +20,17 @@
 #define UART_AF_MODE    (GPIO_AF7)
 #define UART_BAUD_RATE  (115200) // from Google
 
+/* start - flag - len - len*data - stop. so 5, len cannot be 0. */
+/* absolute minimum size of a packet */
+#define MIN_PACKET_SIZE (5)
+
+/* len is in range [1, 255]. so 5 (min) + 254  */
+/* absolutle maximum size of a packet */
+#define MAX_PACKET_SIZE (MIN_PACKET_SIZE + 255 - 1)
+
+/* minimum size a ringbuffer needs to have to fit a packet. */
+#define MIN_PACKET_BUFFER_SIZE (1 << 10)
+
 // adapted from https://stackoverflow.com/a/44611722
 struct packet {
     /* string identifier */
@@ -40,13 +51,6 @@ extern error_t duart_teardown(void);
 
 extern error_t duart_send_packet(struct packet *p);
 
-/* archive? */
-extern error_t duart_start_sequence(uint8_t flag);
-extern error_t duart_write_bytes(char *data);
-extern error_t duart_write_byte(char data);
-extern error_t duart_write_many(uint16_t *data);
-extern error_t duart_write_once(uint16_t data);
-extern error_t duart_read(uint16_t *byte);
 
 
 #endif  // DUART_H

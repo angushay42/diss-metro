@@ -189,9 +189,6 @@ static error_t minimal_uart_setup(void) {
 }
 
 
-
-
-
 // int main(void) {
 //     rcc_setup();
 //     error_t err;
@@ -209,6 +206,12 @@ static error_t minimal_uart_setup(void) {
 //         // usart_send_blocking(USART2, (uint16_t) 'A');
 //         // data = usart_recv_blocking(USART2);
 //         ; // do nothing
+//         while ((USART2_SR & USART_FLAG_RXNE) != 1);
+//         data = usart_recv(USART2);
+//         if (USART2_SR & USART_FLAG_ORE)
+//             error_handle(2);
+//         if (USART2_SR & USART_FLAG_FE)
+//             error_handle(3);
 //     }
 // }
 
@@ -236,8 +239,8 @@ int main(void) {
     if ((err = sys_setup(10)))
         return error_handle(err);
     
-    nvic_set_priority(NVIC_TIM4_IRQ, 1);
-    nvic_set_priority(NVIC_SYSTICK_IRQ, 2);
+    nvic_set_priority(NVIC_TIM4_IRQ, 2);
+    nvic_set_priority(NVIC_SYSTICK_IRQ, 3);
     nvic_set_priority(NVIC_USART2_IRQ, 1);
     
     size_t sample_idx, sample_size, max_size;
@@ -255,7 +258,8 @@ int main(void) {
 
         // duart_send_packet(&samples_pack);
         // *stamps = get_time(false);
-        dmetro_poll_update((uint64_t) 250); 
+        // dmetro_poll_update((uint64_t) 250); 
+        ;
     }
     return 0;
 }
