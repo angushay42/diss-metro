@@ -180,8 +180,8 @@ static error_t minimal_uart_setup(void) {
     uint16_t data = USART2_DR;
 
     /* enable recieve interrupt */
-    // usart_enable_rx_interrupt(USART2);
-    // nvic_enable_irq(NVIC_USART2_IRQ);
+    usart_enable_rx_interrupt(USART2);
+    nvic_enable_irq(NVIC_USART2_IRQ);
     
     /* finally enable usart */
     usart_enable(USART2);
@@ -192,6 +192,7 @@ void usart2_isr(void) {
     gpio_set(ERROR_LED_PORT, ERROR_LED_PIN);
     delay_ms(100);
     gpio_clear(ERROR_LED_PORT, ERROR_LED_PIN);
+    uint16_t data = USART2_DR;
 }
 
 int main(void) {
@@ -208,8 +209,8 @@ int main(void) {
         // while (usart_get_flag(USART2, USART_FLAG_RXNE) != 1)
         //     ;
         // data = usart_recv(USART2);
-        usart_send_blocking(USART2, (uint16_t) 'A');
-        data = usart_recv_blocking(USART2);
+        // usart_send_blocking(USART2, (uint16_t) 'A');
+        // data = usart_recv_blocking(USART2);
         ; // do nothing
     }
 }
