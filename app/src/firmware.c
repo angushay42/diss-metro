@@ -176,10 +176,13 @@ static error_t minimal_uart_setup(void) {
     usart_set_parity(USART2, USART_PARITY_NONE);
     usart_set_databits(USART2, 8);
 
+    /* read DR register to reset rxne flag */
+    uint16_t data = USART2_DR;
+
     /* enable recieve interrupt */
     // usart_enable_rx_interrupt(USART2);
     // nvic_enable_irq(NVIC_USART2_IRQ);
-
+    
     /* finally enable usart */
     usart_enable(USART2);
     return OK;
@@ -195,15 +198,18 @@ int main(void) {
     rcc_setup();
     error_t err;
     rcc_periph_clock_enable(RCC_GPIOC);
-    gpio_mode_setup(ERROR_LED_PORT, GPIO_MODE_OUTPUT, GPIO_PUPD_PULLDOWN, ERROR_LED_PIN);
+    gpio_mode_setup(ERROR_LED_PORT, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, ERROR_LED_PIN);
     gpio_clear(ERROR_LED_PORT, ERROR_LED_PIN);
 
     volatile uint16_t data;
     if ((err = minimal_uart_setup()))
         return error_handle(err);
     while (1) {
-        data = usart_recv(USART2);
+        // while (usart_get_flag(USART2, USART_FLAG_RXNE) != 1)
+        //     ;
+        // data = usart_recv(USART2);
         usart_send_blocking(USART2, (uint16_t) 'A');
+        data = usart_recv_blocking(USART2);
         ; // do nothing
     }
 }
