@@ -22,15 +22,16 @@
 #define UART_BAUD_RATE  (115200) // from Google
 
 /* start - flag - len - len*data - stop. so 5, len cannot be 0. */
+/* min size is 1 */
 /* absolute minimum size of a packet */
 #define MIN_PACKET_SIZE (5)
 
-/* len is in range [1, 255]. so 5 (min) + 254  */
+/* len is in range [1, 255]. so 5 (min) + (max_size * 254)  */
 /* absolutle maximum size of a packet */
-#define MAX_PACKET_SIZE (MIN_PACKET_SIZE + 255 - 1)
+#define MAX_PACKET_SIZE (MIN_PACKET_SIZE - 1 + (8 * 254))
 
 /* minimum size a ringbuffer needs to have to fit a packet. */
-#define MIN_PACKET_BUFFER_SIZE (1 << 10)
+#define MIN_PACKET_BUFFER_SIZE (1 << 11)
 
 #define PACKET_START    ((uint8_t)'{')
 #define PACKET_STOP     ((uint8_t)'}')
@@ -57,6 +58,7 @@ extern error_t duart_setup(void);
 extern error_t duart_teardown(void);
 
 extern error_t duart_send_packet(struct packet *p);
+extern error_t duart_poll_packet(struct packet *p, uint64_t poll_period, bool *found);
 
 
 

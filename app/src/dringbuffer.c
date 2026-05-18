@@ -2,7 +2,7 @@
 
 
 /* initialise ring buffer. returns 0 if successful */
-extern error_t dring_buf_setup(ring_buf_t* rb, uint16_t* buffer, uint32_t size) {
+extern error_t dring_buf_setup(ring_buf_t* rb, uint8_t* buffer, uint32_t size) {
     // check if size is a power of 2
     if (rb == NULL)
         return DRINGBUF_INVALID_RB;
@@ -13,7 +13,7 @@ extern error_t dring_buf_setup(ring_buf_t* rb, uint16_t* buffer, uint32_t size) 
     
     rb->buffer = buffer;
     rb->mask = size - 1;
-    rb->head  = 0;
+    rb->head = 0;
     rb->tail = 0;
     return OK;
 }
@@ -24,7 +24,7 @@ extern int dring_buf_empty(ring_buf_t* rb) {
 }
 
 /* write a byte into ring buffer. returns 0 if successful */
-extern error_t dring_buf_write(ring_buf_t* rb, uint16_t byte) {
+extern error_t dring_buf_write(ring_buf_t* rb, uint8_t byte) {
     if (((rb->head + 1) & rb->mask) == rb->tail)  // buffer full
         return DRINGBUF_FULL;
     
@@ -34,7 +34,7 @@ extern error_t dring_buf_write(ring_buf_t* rb, uint16_t byte) {
 }
 
 /* read a byte from ring buffer. returns 0 if successful */
-extern error_t dring_buf_read(ring_buf_t* rb, uint16_t* byte) {
+extern error_t dring_buf_read(ring_buf_t* rb, uint8_t* byte) {
     if (rb->tail == rb->head)
         return DRINGBUF_EMPTY;       // err code
     

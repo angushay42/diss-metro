@@ -215,50 +215,75 @@ static error_t minimal_uart_setup(void) {
 //     }
 // }
 
+/* test byte order */
 int main(void) {
     rcc_setup();
-    error_t err;
-    
-    rcc_periph_clock_enable(RCC_GPIOC);
-    gpio_mode_setup(ERROR_LED_PORT, GPIO_MODE_OUTPUT, GPIO_PUPD_PULLDOWN, ERROR_LED_PIN);
-    gpio_clear(ERROR_LED_PORT, ERROR_LED_PIN);
-    
-    if ((err = dspi_setup())) {
-        error_handle(err);
-        return err;
-    }
-    if ((err = duart_setup())) {
-        error_handle(err);
-        return err;
-    }
-    if ((err = dmetro_setup())) {
-        error_handle(err);
-        return err;
-    }
 
-    if ((err = sys_setup(10)))
-        return error_handle(err);
+    uint8_t arr[256];
+    uint32_t arr2[256];
     
-    nvic_set_priority(NVIC_TIM4_IRQ, 2);
-    nvic_set_priority(NVIC_USART2_IRQ, 1);
+    arr[0] = 0xff;
+    arr[1] = 0x1;
+    arr[2] = 0x36;
+    arr[3] = 0x0;
     
-    size_t sample_idx, sample_size, max_size;
-    max_size = 64;
-    uint64_t note_stamp, next_beat, now, listening_period;
-    short samples[max_size], sample;
-    bool ans;
+    arr2[0] = (uint32_t) 0xff013600;
 
-    listening_period = 50; // ms
-    sample_size = 10;       
+    int tests[20];
+    tests[0] = *((uint8_t*) arr2) == arr[3];
+    tests[1] = *((uint8_t*) arr2 + 1) == arr[2];
 
     while (1) {
-        // dspi_rcv(&sample);
-        // send_stamped_sample();
-
-        // duart_send_packet(&samples_pack);
-        // *stamps = get_time(false);
-        // dmetro_poll_update((uint64_t) 250); 
         ;
     }
     return 0;
 }
+
+// int main(void) {
+//     rcc_setup();
+//     error_t err;
+    
+//     rcc_periph_clock_enable(RCC_GPIOC);
+//     gpio_mode_setup(ERROR_LED_PORT, GPIO_MODE_OUTPUT, GPIO_PUPD_PULLDOWN, ERROR_LED_PIN);
+//     gpio_clear(ERROR_LED_PORT, ERROR_LED_PIN);
+    
+//     if ((err = dspi_setup())) {
+//         error_handle(err);
+//         return err;
+//     }
+//     if ((err = duart_setup())) {
+//         error_handle(err);
+//         return err;
+//     }
+//     if ((err = dmetro_setup())) {
+//         error_handle(err);
+//         return err;
+//     }
+
+//     if ((err = sys_setup(10)))
+//         return error_handle(err);
+    
+//     nvic_set_priority(NVIC_TIM4_IRQ, 2);
+//     nvic_set_priority(NVIC_USART2_IRQ, 1);
+    
+//     size_t sample_idx, sample_size, max_size;
+//     max_size = 64;
+//     uint64_t note_stamp, next_beat, now, listening_period;
+//     short samples[max_size], sample;
+//     bool ans;
+
+//     listening_period = 50; // ms
+//     sample_size = 10;       
+
+//     while (1) {
+        
+//         // dspi_rcv(&sample);
+//         // send_stamped_sample();
+
+//         // duart_send_packet(&samples_pack);
+//         // *stamps = get_time(false);
+//         // dmetro_poll_update((uint64_t) 250); 
+//         ;
+//     }
+//     return 0;
+// }

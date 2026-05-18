@@ -44,6 +44,16 @@ int test_handle(int (*test_f)(), char *s) {
     return 0;
 }
 
+struct test {
+    union {
+        uint8_t *bytep;
+        uint16_t *halfp;
+        uint32_t *wordp;
+        uint64_t *doublep;
+        double *floatp;
+    };
+};
+
 /**************************** main ************************/
 int main(void) {
     int err;
@@ -62,6 +72,29 @@ int main(void) {
 
     // if ((err = test_handle(&test_sys_time, "SYS TIME")))
     //     return err;
+    
+    /* create array of bytes */
+    uint8_t arr[256];
+
+    /* store 4 bytes in there */
+    arr[0] = 0xFF;
+    arr[1] = 0x1;
+    arr[2] = 0x36;
+    arr[3] = 0;
+
+    printf("4 bytes: %u, %u, %u, %u\n", arr[0], arr[1], arr[2], arr[3]);
+    printf("One 32bit word: %llu\n", *((uint32_t*) arr));
+
+    uint32_t arr2[256];
+
+    arr2[0] = (uint32_t) 0xFF013600;
+
+    printf("one 32 bit word: %u\n", arr2[0]);
+    printf("4 bytes: %u, %u, %u, %u\n", *((uint8_t*) arr2), *((uint8_t*) arr2 + 1), *((uint8_t*) arr2 + 2), *((uint8_t*) arr2 + 3));
+
+
+    
+
 
     if ((err = test_handle(&test_duart, "DUART PROTOCOL")))
         return err;
