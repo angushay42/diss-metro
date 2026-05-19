@@ -66,9 +66,13 @@ class UART:
         
         return
 
-    def send(self, data: list[int|float], size: 2, is_signed:bool=False, is_float:bool=False):
-        # todo data length
-
+    def send(self, data: list[int|float]|str, size: 2, is_signed:bool=False, is_float:bool=False):
+        if not data:
+            # todo raise exception? 
+            return 0
+        # todo valdate data length
+        if isinstance(data, str):
+            data = [ord(x) for x in data]
         # convert data to format 
         packet = self.manager.get_packet(size, data, is_signed, is_float)
         
@@ -412,17 +416,23 @@ class MockSerial:
 def main():
     start = time.time()
     server = UART(0)
-    delay = 100 / 1000
+    delay = 500 / 1000
     last = None
+    to_send = [("COMMAND", 1), ([1], 1)]
+    i = 0
     try:
         while True:
-            now = time.time()
-            if last and now - last < delay:
-                continue
-            else:
-                last = now
-            n = server.send([1], 1)
-            print(n)
+            # now = time.time()
+            # if last and now - last < delay:
+            #     continue
+            # else:
+            #     last = now
+            key = input("Waiting keypress... ")
+            if key == "n":
+                current = to_send[i]
+                n = server.send(current[0], current[1])
+                print(f"{n} bytes sent")
+                i = (i+ 1) % 2
     except KeyboardInterrupt:
         pass
 

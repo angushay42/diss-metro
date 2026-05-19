@@ -51,7 +51,9 @@ typedef enum d_errors {
     PACKET_FAILED_READ,
     PACKET_MISSING_START_STOP,
     PACKET_SIZE_MISMATCH,
-
+    PACKET_NULL_POINTER,
+    PACKET_NULL_MEMORY,
+    NOT_IMPLEMENTED,
 } error_t;
 
 enum d_flags {

@@ -6,11 +6,12 @@ static uint8_t _buffer[RING_BUF_MAX];
 static ring_buf_t _rb;
 uint8_t count = 0;
 
-extern volatile bool packet_found = false;
+volatile bool packet_found = false;
 static bool packet_started = false;
 
+/* @todo added volatile to prevent optimising out?*/
 /* private timestamp of last time packet was polled*/
-static uint64_t last_poll_packet = 0;
+static volatile uint64_t last_poll_packet = 0;
 
 /* static prototypes */
 static void duart_enable(void);
@@ -21,8 +22,9 @@ static error_t duart_send_16(struct packet *p);
 static error_t duart_send_32(struct packet *p);
 static error_t duart_send_64(struct packet *p);
 static error_t duart_validate_packet(uint8_t buffer[], bool *found);
-static error_t duart_fill_packet(struct packet *p, uint8_t buffer[]);
 static uint8_t get_size_from_flag(uint8_t flag);
+static error_t duart_fill_packet(struct packet *p, uint8_t buffer[]);
+static error_t duart_fill_8(struct packet *p, uint8_t buffer[]);
 
 
 /** @TODO
@@ -154,14 +156,19 @@ static error_t duart_send(struct packet *p) {
     return OK;
 }
 
+/* @ todo CHECK FOR NULL POINTERs */
 extern error_t duart_poll_packet(struct packet *p, uint64_t poll_period, bool *found) {
+    if (p == NULL)
+        return PACKET_NULL_POINTER;
+    if ((*p).u == NULL)
+        return PACKET_NULL_MEMORY;
     error_t err;
     /* get current time */
     uint64_t now = get_time(true);
     uint8_t buffer[MAX_PACKET_SIZE]; 
 
     /* if packet was found, write it into packet */
-    if (packet_found && (now - last_poll_packet) >= poll_period) {
+    if (packet_found && ((now - last_poll_packet) >= poll_period)) {
         /* validate packet and write into buffer */
         if ((err = duart_validate_packet(buffer, found)))
             return err;
@@ -172,6 +179,11 @@ extern error_t duart_poll_packet(struct packet *p, uint64_t poll_period, bool *f
         /* format packet data into struct  */
         if ((err = duart_fill_packet(p, buffer)))
             return err;
+
+        /* unsure about this, but this is a critical section. */
+        usart_disable_rx_interrupt(USART2);
+        packet_found = false;
+        usart_enable_rx_interrupt(USART2);
         return OK;
     }
     *found = false;
@@ -179,6 +191,10 @@ extern error_t duart_poll_packet(struct packet *p, uint64_t poll_period, bool *f
 }
 
 static error_t duart_fill_packet(struct packet *p, uint8_t buffer[]) {
+    if (p == NULL || buffer == NULL)
+        return PACKET_NULL_POINTER;
+    if ((*p).u == NULL)
+        return PACKET_NULL_MEMORY;
     error_t err;
     uint8_t flag, len, size;
     
@@ -189,23 +205,37 @@ static error_t duart_fill_packet(struct packet *p, uint8_t buffer[]) {
     (*p).len = len;
     switch (size) {
         case 1:
+            err = duart_fill_8(p, buffer);
             break;
         case 2:
+            err = NOT_IMPLEMENTED;
             break;
         case 4:
+            err = NOT_IMPLEMENTED;
             break;
         case 8:
+            err = NOT_IMPLEMENTED;
             break; 
         default:
             return PACKET_INVALID_SIZE;
     }
+    return (err) ? err: OK;
 }
+/* @TODO fill other word sizes, bearing in mind that byte order is little-endian. */
 
-static error_t duart_fill_8(struct packet *p) {
-    uint8_t data[(*p).len];
+static error_t duart_fill_8(struct packet *p, uint8_t buffer[]) {
+    if (p == NULL || buffer == NULL)
+        return PACKET_NULL_POINTER;
+    if ((*p).u == NULL)
+        return PACKET_NULL_MEMORY;
+    /* cast void to byte pointer */
+    uint8_t *ptr = (*p).u;
+    size_t offset = 3U; // start + flag + len
+    /* iterate through buffer and fill the packet with formatted data */
     for (size_t i = 0; i < (*p).len; i++) {
-        
+        *(ptr + i) = buffer[i + offset];
     }
+    return OK;
 }
 
 static uint8_t get_size_from_flag(uint8_t flag) {
@@ -217,10 +247,15 @@ static uint8_t get_size_from_flag(uint8_t flag) {
 
 /* @TODO errors overwrite buffer errors */
 static error_t duart_validate_packet(uint8_t buffer[], bool *found) {
+    if (buffer == NULL)
+        return PACKET_NULL_POINTER;
     error_t err;
     uint8_t flag, len, size;
     size_t i, n;
-
+    
+    i = n = 0;
+    *found = false;
+    
     /* if buffer empty */
     if (dring_buf_empty(&_rb))
         return (err = PACKET_EMPTY_BUFFER);
@@ -231,7 +266,8 @@ static error_t duart_validate_packet(uint8_t buffer[], bool *found) {
             return (err = PACKET_FAILED_READ);
     
     /* if len buffer invalid */
-    n = i + 1;
+    /* i is incremented either way, so it will point to the next slot, i.e. one past the end */
+    n = i;
     if (!(n >= MIN_PACKET_SIZE && n <= MAX_PACKET_SIZE))
         return (err = PACKET_INVALID_SIZE);
 
@@ -244,8 +280,11 @@ static error_t duart_validate_packet(uint8_t buffer[], bool *found) {
     size = get_size_from_flag(flag);
 
     /* if length of buffer doesn't match what flag and length says */
-    if (n != (size * len) + 4)
+    if (n != (size_t)((size * len) + 4))
         return (err = PACKET_SIZE_MISMATCH);
+    
+    /* if none of the above occurs, packet is found */
+    *found = true;
     return OK;
 }
 
@@ -253,7 +292,7 @@ static error_t duart_validate_packet(uint8_t buffer[], bool *found) {
 /************************* interrupts *********************/
 void usart2_isr(void) {
     error_t err;
-    if (usart_get_flag(USART2, USART_FLAG_RXNE)) {
+    if (usart_get_flag(USART2, USART_FLAG_RXNE) == 1) {
         /* read from buffer, clearing the flag also. */
         uint8_t data = (uint8_t) usart_recv(USART2);
 
@@ -311,8 +350,8 @@ error_t duart_setup(void) {
     usart_enable_rx_interrupt(UART);
     nvic_enable_irq(NVIC_USART2_IRQ);
 
-    /* clear flag in case */
-    uint16_t data = USART2_DR;
+    /* clear flag by reading from DR in case */
+    usart_recv(USART2);
 
     /* finally enable*/
     usart_enable(UART);
