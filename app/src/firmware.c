@@ -160,7 +160,7 @@ int main(void) {
         // dspi_rcv(&sample);
         // send_stamped_sample();
 
-        // dmetro_poll_update((uint64_t) 250); 
+        dmetro_poll_update((uint64_t) 250); 
         ;
     }
     return 0;
