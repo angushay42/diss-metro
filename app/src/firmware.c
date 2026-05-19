@@ -130,13 +130,10 @@ double tim_freq;
 
 /* add OC value to turn the LED off */
 void queue_toggle(void) {
-    uint32_t temp, counter;
-    /* if beat index is odd (quaver) then we need to add the current counter, */
-    /* otherwise we can add to 0 */
-    counter = (beat_idx & 1) ? timer_get_counter(TIM3): 0;
 
-    /* wrap value around beat_period to ensure it stays < auto reload (period) */
-    temp = (counter + pulse_period) % beat_period;
+    uint32_t temp;
+    /* this works for quavers, but won't for anything more complex. */
+    temp = pulse_period + ((beat_idx & 1) ? half_period: 0);
 
     /* critical section, disable interrupts to toggle shared variable */
     nvic_disable_irq(NVIC_TIM3_IRQ);
@@ -147,45 +144,55 @@ void queue_toggle(void) {
     timer_set_oc_value(TIM3, TIM_OC1, temp);
 }
 
+/** NOTE: 
+ * blue     = Overflow Interrupt =   The beat (crotchet)        = PB8
+ * red      = OC interrupt       =   LED toggling off (100ms)   = PC12
+ * green    = OC interrupt       =   The sub-beat (quaver)      = PB6
+ */
+
 void tim3_isr(void) {
-    /* this is the BEAT of the metronome; crotchets in 4/4 */
+
     if (timer_get_flag(TIM3, TIM_SR_UIF)) {
-        
+        /* select flag that triggered this */
+        // uint32_t flag = (timer_get_flag(TIM3, TIM_SR_UIF)) ? TIM_SR_UIF : TIM_SR_CC2IF;
+
         /* if beat is set to play, turn LED on*/
         if (sequence[beat_idx]) {    
             /* turn LED on */
             gpio_set(GPIOB, GPIO6);
+
             /* queue the timer to turn the LED back off */
             queue_toggle();
         }
         beat_idx = (beat_idx + 1) % 8;
+        /* clear flag */
         timer_clear_flag(TIM3, TIM_SR_UIF);
     }
     else if (timer_get_flag(TIM3, TIM_SR_CC1IF)) {
-        volatile uint32_t cnt = timer_get_counter(TIM3);
         /* if LED is currently on, turn it off*/
         if (led_status) {
-            gpio_set(ERROR_LED_PORT, ERROR_LED_PIN);
-
+            /* turn LED off */
             gpio_clear(GPIOB, GPIO6);
+
+            /* critical section */
             nvic_disable_irq(NVIC_TIM3_IRQ);
             led_status = false;
             nvic_enable_irq(NVIC_TIM3_IRQ);
-            timer_clear_flag(TIM3, TIM_SR_CC1IF);
-            return;
         }
+        timer_clear_flag(TIM3, TIM_SR_CC1IF);
+    }
+    else if (timer_get_flag(TIM3, TIM_SR_CC2IF)) {
         /* if beat is set to play, turn LED on*/
         if (sequence[beat_idx]) {    
-            gpio_clear(ERROR_LED_PORT, ERROR_LED_PIN);
-
             /* turn LED on */
             gpio_set(GPIOB, GPIO6);
+
             /* queue the timer to turn the LED back off */
             queue_toggle();
         }
         beat_idx = (beat_idx + 1) % 8;
-
-        timer_clear_flag(TIM3, TIM_SR_CC1IF);   
+        /* clear flag */
+        timer_clear_flag(TIM3, TIM_SR_CC2IF);
     }
 
 }
@@ -205,7 +212,8 @@ static error_t minimal_set_tempo(uint32_t bpm) {
     if (!(new_psc >= 1 && new_psc < MAX_PSC))
         return 2;
         
-    /* critical section, change variables */
+    /* need to change variables that could be altered in other threads, */
+    /* so disable interrupts for this critical section */
     nvic_disable_irq(NVIC_TIM3_IRQ);
     
     /* update if valid */
@@ -214,7 +222,8 @@ static error_t minimal_set_tempo(uint32_t bpm) {
 
     /* set new value for quaver */
     half_period = (uint32_t) round((double) beat_period / 2.0);
-    timer_set_oc_value(TIM3, TIM_OC1, half_period);
+    /* use Output Compare channel 2 (OC2) for quavers */
+    timer_set_oc_value(TIM3, TIM_OC2, half_period);
 
     /* reset sequence */
     beat_idx = 0;
@@ -248,24 +257,33 @@ static error_t minimal_timer_setup() {
     timer_continuous_mode(TIM3);
     timer_set_mode(TIM3, TIM_CR1_CKD_CK_INT, TIM_CR1_CMS_EDGE, TIM_CR1_DIR_UP);
     timer_disable_preload(TIM3);
-    timer_enable_oc_output(TIM3, TIM_OC1);
 
-    /* set initial values */
+    /* enable output compare on channel 1 and  2*/
+    timer_enable_oc_output(TIM3, TIM_OC1);
+    timer_enable_oc_output(TIM3, TIM_OC2);
+
+    /* set timer peripheral prescaler */
     timer_set_prescaler(TIM3, clk_psc);
 
-    /* 1 and, 2 and, 3, 4*/
-    uint8_t seq[] = {1, 1, 1, 1, 1, 0, 1, 0};
+
+    /* 1 and 2 and 3 and 4 and */
+    uint8_t seq[] = {1, 1, 1, 1, 1, 1, 1, 1};
 
     /* set starting tempo */
     if ((err = minimal_set_tempo(120U)))
         return err;
+    /* set starting sequence (this will likely be just crotchets)*/
     if ((err = set_sequence(seq)))
         return err;
+    /* set toggle pulse */
+    timer_set_oc_value(TIM3, TIM_OC1, pulse_period);
 
-    /* enable interrupt s*/
+    /* enable interrupts */
     nvic_enable_irq(NVIC_TIM3_IRQ);
     timer_enable_irq(TIM3, TIM_DIER_UIE);   // overflow
-    timer_enable_irq(TIM3, TIM_DIER_CC1IE); // output compare
+    timer_enable_irq(TIM3, TIM_DIER_CC1IE); // output compare 1 (LED toggle)
+    timer_enable_irq(TIM3, TIM_DIER_CC2IE); // output compare 2 (quaver pulse)
+
     
     /* finally enable */
     timer_enable_counter(TIM3);
@@ -276,6 +294,7 @@ int main(void) {
     error_t err;
     rcc_setup();
 
+    /* red LED, usually for errors but for testing one of the triggers in ISR this time. */
     rcc_periph_clock_enable(RCC_GPIOC);
     gpio_mode_setup(ERROR_LED_PORT, GPIO_MODE_OUTPUT, GPIO_PUPD_PULLDOWN, ERROR_LED_PIN);
     gpio_clear(ERROR_LED_PORT, ERROR_LED_PIN);
