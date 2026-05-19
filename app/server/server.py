@@ -66,7 +66,7 @@ class UART:
         
         return
 
-    def send(self, data: list[int|float]|str, size: 2, is_signed:bool=False, is_float:bool=False):
+    def send(self, size: 2, data: list[int|float]|str, is_signed:bool=False, is_float:bool=False):
         if not data:
             # todo raise exception? 
             return 0
@@ -418,7 +418,7 @@ def main():
     server = UART(0)
     delay = 500 / 1000
     last = None
-    to_send = [("COMMAND", 1), ([1], 1)]
+    to_send = [(1, "COMMAND"), (1, [1])]
     i = 0
     try:
         while True:
@@ -427,8 +427,10 @@ def main():
             #     continue
             # else:
             #     last = now
+            # print(server.send(*(to_send[i])))
+
             key = input("Waiting keypress... ")
-            if key == "n":
+            if key:
                 current = to_send[i]
                 n = server.send(current[0], current[1])
                 print(f"{n} bytes sent")

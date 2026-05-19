@@ -157,7 +157,6 @@ int main(void) {
             }
 
         }
-
         // dspi_rcv(&sample);
         // send_stamped_sample();
 
