@@ -102,6 +102,10 @@ void queue_toggle(void);
 static error_t set_sequence(uint8_t new_sequence[]);
 static error_t minimal_set_tempo(uint32_t bpm);
 static error_t minimal_timer_setup();
+static void tempo_start();
+static void tempo_stop();
+static void tempo_toggle();
+
 
 /* beat program */
 volatile uint8_t sequence[8] = {0U};
@@ -127,6 +131,56 @@ uint32_t pulse_period_ms = 100;
 
 /* current timer frequency. 84000000 / 2048 = ~41KHz */
 double tim_freq;
+
+volatile bool tempo_status = false;
+static void tempo_start() {
+    /* reset beat index */
+    beat_idx = 0;
+
+    led_status = false;
+
+    /* reset counter */
+    timer_set_counter(TIM3, 0U);
+
+    /* pend overflow (beat 1) */
+    timer_generate_event(TIM3, TIM_EGR_UG);
+
+    /* mark tempo as started */
+    tempo_status = true;
+
+    /* start counter */
+    timer_enable_counter(TIM3);
+
+    /* enable interrupts */
+    nvic_enable_irq(NVIC_TIM3_IRQ);
+}
+static void tempo_stop() {
+    /* disable interrupts */
+    nvic_disable_irq(NVIC_TIM3_IRQ);
+
+    /* stop counter */
+    timer_disable_counter(TIM3);
+
+    /* mark status of tmepo */
+    tempo_status = false;
+
+    /* reset flags */
+    timer_clear_flag(TIM3, TIM_SR_UIF);
+    timer_clear_flag(TIM3, TIM_SR_CC1IF);
+    timer_clear_flag(TIM3, TIM_SR_CC2IF);
+
+    led_status = false;
+}
+
+/* push button functionality */
+static void tempo_toggle() {
+    tempo_status = !tempo_status;
+    if (tempo_status)
+        tempo_start();
+    else 
+        tempo_stop();
+
+}
 
 /* add OC value to turn the LED off */
 void queue_toggle(void) {
@@ -289,7 +343,7 @@ static error_t minimal_timer_setup() {
 
     
     /* finally enable */
-    timer_enable_counter(TIM3);
+    tempo_start();
     return OK;
 }
 
@@ -302,6 +356,7 @@ int main(void) {
     gpio_mode_setup(ERROR_LED_PORT, GPIO_MODE_OUTPUT, GPIO_PUPD_PULLDOWN, ERROR_LED_PIN);
     gpio_clear(ERROR_LED_PORT, ERROR_LED_PIN);
 
+    /* debugging stuff */
     rcc_periph_clock_enable(RCC_GPIOB);
     gpio_mode_setup(GPIOC, GPIO_MODE_OUTPUT, GPIO_PUPD_PULLDOWN, GPIO9);
     gpio_mode_setup(GPIOB, GPIO_MODE_OUTPUT, GPIO_PUPD_PULLDOWN, GPIO8);
@@ -312,7 +367,6 @@ int main(void) {
 
     if ((err = minimal_timer_setup()))
         return error_handle(err);
-
     while (1) {
         ;
     }
