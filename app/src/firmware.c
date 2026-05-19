@@ -356,19 +356,56 @@ int main(void) {
     gpio_mode_setup(ERROR_LED_PORT, GPIO_MODE_OUTPUT, GPIO_PUPD_PULLDOWN, ERROR_LED_PIN);
     gpio_clear(ERROR_LED_PORT, ERROR_LED_PIN);
 
-    /* debugging stuff */
-    rcc_periph_clock_enable(RCC_GPIOB);
-    gpio_mode_setup(GPIOC, GPIO_MODE_OUTPUT, GPIO_PUPD_PULLDOWN, GPIO9);
-    gpio_mode_setup(GPIOB, GPIO_MODE_OUTPUT, GPIO_PUPD_PULLDOWN, GPIO8);
-    gpio_mode_setup(GPIOB, GPIO_MODE_OUTPUT, GPIO_PUPD_PULLDOWN, GPIO9);
-    gpio_clear(GPIOC, GPIO9);
-    gpio_clear(GPIOB, GPIO8);
-    gpio_clear(GPIOB, GPIO9);
+    if ((err = sys_setup(10U)))
+        return error_handle(err);
 
     if ((err = minimal_timer_setup()))
         return error_handle(err);
+
+    /* 1, 2, 3, 4 */
+    uint8_t test1[] = {1, 0, 1, 0, 1, 0, 1, 0};
+
+    /* 1, _, _, _ */
+    uint8_t test2[] = {1, 0, 0, 0, 0, 0, 0, 0};
+
+    /* 1 and, 2, _, _ and */
+    uint8_t test3[] = {1, 1, 1, 0, 0, 0, 0, 1};
+
+    /* 1 and, 2 and, 3 and, 4 and */
+    uint8_t test4[] = {1, 1, 1, 1, 1, 1, 1, 1};
+
+    uint8_t *test_seq[4];
+    size_t num_tests, test_idx;
+    test_idx = 0;
+    num_tests = 4;
+
+    test_seq[0] = test1;
+    test_seq[1] = test2;
+    test_seq[2] = test3;
+    test_seq[3] = test4;
+
+    volatile uint64_t last, now, period;
+    last = 0;
+    period = 5000; // ms
     while (1) {
-        ;
+        now = get_time(true);
+        /* if it is time to poll */
+        if (now - last >= period) {
+            gpio_set(ERROR_LED_PORT, ERROR_LED_PIN);
+            delay_ms(100);
+            gpio_clear(ERROR_LED_PORT, ERROR_LED_PIN);
+
+            /* update last poll time */
+            last = now;
+
+            tempo_stop();
+            set_sequence(test_seq[test_idx]);
+            delay_ms(500);
+            tempo_start();
+
+            /* increment index */
+            test_idx = (test_idx + 1) % num_tests;
+        }
     }
     
 }
