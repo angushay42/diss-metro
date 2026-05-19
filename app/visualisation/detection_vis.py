@@ -81,6 +81,18 @@ def detect_note(testing: bool):
     return detections
             
 
+""" # TODO
+- fill window first, then start main loop (looks cleaner)
+- expression is:
+    y(n) = (1/N) * (sum(target[n-N/2 : N/2]) * w(n))
+    so y(n) is the energy (amplitude, or squared if the mcu can take it) of the centre
+    of the window, 
+- then take the difference between this n and last n
+    - ans(n) = log(y(n)) - log(y(n-1))
+
+- this can all be done in real time, so long as w(n) returns 1 (even weighting)
+"""
+
 # https://stackoverflow.com/questions/294468/note-onset-detection
 # this link is super helpful. the top answer is very detailed however I think I just need to adjust 
 # my method a little bit, and actually it seems like a combination of differernt methods I've tried. Will update git.
@@ -107,19 +119,22 @@ def detect_onsets(
         if wstop - wstart < window_size:
             wsum += target[wstop]
             wstop += 1
+        
         else:
-            wsum += target[wstop]
+            wsum += np.log10(target[wstop]) - np.log10(target[wstop-1])
             # get average of window
-            wavg = wsum / window_size 
+            wavg = wsum / window_size
             if wavg > avg and wavg > onset_thresh:
                 onsets.append((wstart, wstop))
-            wsum -= target[wstart]
+            if wstart == 0:
+                wsum -= np.log10( target[wstart])
+            else:
+                wsum -= np.log10(target[wstart]) - np.log10(target[wstart-1])
             
             # move window
             wstart += 1
             wstop += 1
         
-      
     return onsets
 
 # ================ pre-processing function ================== #
@@ -213,7 +228,7 @@ def test_onsets():
     window_size = max(min_window, window_size)
 
     window_size = 50
-    thresh = 900    # amplitude in LSB
+    thresh = 1    # amplitude in LSB
 
     # test no processing, compressed, filtered.
     inputs = []
