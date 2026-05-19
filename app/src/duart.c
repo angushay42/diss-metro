@@ -24,7 +24,7 @@ static error_t duart_send_64(struct packet *p);
 static error_t duart_validate_packet(uint8_t buffer[], bool *found);
 static uint8_t get_size_from_flag(uint8_t flag);
 static error_t duart_fill_packet(struct packet *p, uint8_t buffer[]);
-static error_t duart_fill_8(struct packet *p, uint8_t buffer[]);
+static error_t duart_fill_8(struct packet *p, uint8_t buffer[], size_t len);
 
 
 /** @TODO
@@ -202,10 +202,9 @@ static error_t duart_fill_packet(struct packet *p, uint8_t buffer[]) {
     flag = buffer[1], len = buffer[2];
     size = get_size_from_flag(flag);
     (*p).size = size;
-    (*p).len = len;
     switch (size) {
         case 1:
-            err = duart_fill_8(p, buffer);
+            err = duart_fill_8(p, buffer, len);
             break;
         case 2:
             err = NOT_IMPLEMENTED;
@@ -223,18 +222,26 @@ static error_t duart_fill_packet(struct packet *p, uint8_t buffer[]) {
 }
 /* @TODO fill other word sizes, bearing in mind that byte order is little-endian. */
 
-static error_t duart_fill_8(struct packet *p, uint8_t buffer[]) {
+static error_t duart_fill_8(struct packet *p, uint8_t buffer[], size_t len) {
     if (p == NULL || buffer == NULL)
         return PACKET_NULL_POINTER;
     if ((*p).u == NULL)
         return PACKET_NULL_MEMORY;
     /* cast void to byte pointer */
     uint8_t *ptr = (*p).u;
-    size_t offset = 3U; // start + flag + len
-    /* iterate through buffer and fill the packet with formatted data */
-    for (size_t i = 0; i < (*p).len; i++) {
+    size_t i, offset;
+    
+    offset = 3U; // start + flag + len
+
+    /* copy data into buffer */
+    for (i = 0; i < len; i++) {
         *(ptr + i) = buffer[i + offset];
     }
+    /* null terminate */
+    *(ptr + i) = '\0';
+
+    /* set length */
+    (*p).len = len + 1;
     return OK;
 }
 

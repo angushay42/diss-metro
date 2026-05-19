@@ -93,7 +93,26 @@ int main(void) {
     printf("4 bytes: %u, %u, %u, %u\n", *((uint8_t*) arr2), *((uint8_t*) arr2 + 1), *((uint8_t*) arr2 + 2), *((uint8_t*) arr2 + 3));
 
 
-    
+    print_line(40);
+
+    char command[] = "COMMAND";
+
+    uint8_t buf[256];
+    // for (size_t i = 0; i < 8; i++)
+    //     buf[i] = (uint8_t) command[i];
+
+    buf[0] = 1;
+    buf[1] = '\0';
+    char *ptr, *cmp;
+    ptr = command;
+    cmp = (char*) buf;
+    int ans;
+    while (*ptr++ == *cmp++)
+        ans = (*ptr == '\0') ? 0: *ptr - *cmp; 
+
+    printf("%i\n", ans);
+    print_line(40);
+
 
 
     if ((err = test_handle(&test_duart, "DUART PROTOCOL")))

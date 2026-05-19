@@ -127,7 +127,11 @@ int main(void) {
     
 
     uint64_t listening_period;
+    /* flag for detecting packets */
     bool found;
+
+    /* flag used to wait for arguments to a command */
+    volatile bool waiting = false;
 
     listening_period = 50; // ms
 
@@ -135,7 +139,23 @@ int main(void) {
         if ((err = duart_poll_packet(&commandp, 100, &found)))
             return error_handle(err);
         if (found) {
-            /* @todo process command here */
+            char *ptr, *cmp;
+            ptr = (char*) command_buf;
+            cmp = commandp.id;
+            volatile int ans;
+            ans = 1;
+
+            while (*ptr++ == *cmp++)
+                ans = (*ptr == '\0') ? 0: *ptr - *cmp;  
+            /* strcmp returns 0, so I mimicked that */
+            if (!ans) {
+                waiting = true;
+            }
+            else if (ans && waiting) {
+                /* @todo process beat command */
+                waiting = false;
+            }
+
         }
 
         // dspi_rcv(&sample);
