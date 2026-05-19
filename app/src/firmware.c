@@ -98,70 +98,261 @@ struct packet commandp = {
     .is_signed = false
 };
 
-int main(void) {
-    rcc_setup();
-    error_t err;
+void queue_toggle(void);
+static error_t set_sequence(uint8_t new_sequence[]);
+static error_t minimal_set_tempo(uint32_t bpm);
+static error_t minimal_timer_setup();
+
+/* beat program */
+volatile uint8_t sequence[8] = {0U};
+volatile size_t beat_idx = 0;
+
+/* prescaler for timer, set to 2048 by setup */
+volatile uint32_t clk_psc = 0;
+
+/* period in clock ticks of the main beat (crotchets in 4/4) */
+volatile uint32_t beat_period = 0;
+
+/* period in clock ticks of the LED pulse */
+volatile uint32_t pulse_period = 0;
+
+/* period in clock ticks of the half beats (quavers in 4/4) */
+volatile uint32_t half_period = 0;  // in clk ticks
+
+/* flag marking the status of the LED */
+volatile bool led_status = false;
+
+/* time in ms for the LED to blink flash for */
+uint32_t pulse_period_ms = 100;
+
+/* current timer frequency. 84000000 / 2048 = ~41KHz */
+double tim_freq;
+
+/* add OC value to turn the LED off */
+void queue_toggle(void) {
+    uint32_t temp, counter;
+    /* if beat index is odd (quaver) then we need to add the current counter, */
+    /* otherwise we can add to 0 */
+    counter = (beat_idx & 1) ? timer_get_counter(TIM3): 0;
+
+    /* wrap value around beat_period to ensure it stays < auto reload (period) */
+    temp = (counter + pulse_period) % beat_period;
+
+    /* critical section, disable interrupts to toggle shared variable */
+    nvic_disable_irq(NVIC_TIM3_IRQ);
+    led_status = true;
+    nvic_enable_irq(NVIC_TIM3_IRQ);
+
+    /* update new output compare value */
+    timer_set_oc_value(TIM3, TIM_OC1, temp);
+}
+
+void tim3_isr(void) {
+    /* this is the BEAT of the metronome; crotchets in 4/4 */
+    if (timer_get_flag(TIM3, TIM_SR_UIF)) {
+        
+        /* if beat is set to play, turn LED on*/
+        if (sequence[beat_idx]) {    
+            /* turn LED on */
+            gpio_set(GPIOB, GPIO6);
+            /* queue the timer to turn the LED back off */
+            queue_toggle();
+        }
+        beat_idx = (beat_idx + 1) % 8;
+        timer_clear_flag(TIM3, TIM_SR_UIF);
+    }
+    else if (timer_get_flag(TIM3, TIM_SR_CC1IF)) {
+        volatile uint32_t cnt = timer_get_counter(TIM3);
+        /* if LED is currently on, turn it off*/
+        if (led_status) {
+            gpio_set(ERROR_LED_PORT, ERROR_LED_PIN);
+
+            gpio_clear(GPIOB, GPIO6);
+            nvic_disable_irq(NVIC_TIM3_IRQ);
+            led_status = false;
+            nvic_enable_irq(NVIC_TIM3_IRQ);
+            timer_clear_flag(TIM3, TIM_SR_CC1IF);
+            return;
+        }
+        /* if beat is set to play, turn LED on*/
+        if (sequence[beat_idx]) {    
+            gpio_clear(ERROR_LED_PORT, ERROR_LED_PIN);
+
+            /* turn LED on */
+            gpio_set(GPIOB, GPIO6);
+            /* queue the timer to turn the LED back off */
+            queue_toggle();
+        }
+        beat_idx = (beat_idx + 1) % 8;
+
+        timer_clear_flag(TIM3, TIM_SR_CC1IF);   
+    }
+
+}
+
+static error_t set_sequence(uint8_t new_sequence[]) {
+    for (size_t i = 0; i < 8; i++)
+        sequence[i] = new_sequence[i];
+    return OK;
+}
+
+static error_t minimal_set_tempo(uint32_t bpm) {
+    if (!(bpm >= MIN_BPM && bpm <= MAX_BPM))
+        return 1;
+      
+    double fbpm = (double) bpm / 60.0;
+    uint32_t new_psc = (uint32_t) round(tim_freq / fbpm);
+    if (!(new_psc >= 1 && new_psc < MAX_PSC))
+        return 2;
+        
+    /* critical section, change variables */
+    nvic_disable_irq(NVIC_TIM3_IRQ);
     
+    /* update if valid */
+    beat_period = new_psc;
+    timer_set_period(TIM3, beat_period);
+
+    /* set new value for quaver */
+    half_period = (uint32_t) round((double) beat_period / 2.0);
+    timer_set_oc_value(TIM3, TIM_OC1, half_period);
+
+    /* reset sequence */
+    beat_idx = 0;
+
+    /* exit critical section */
+    nvic_enable_irq(NVIC_TIM3_IRQ);
+
+    return OK;
+}
+
+static error_t minimal_timer_setup() {
+    error_t err;
+    /* init global vars */
+    clk_psc = 2048U;
+    tim_freq = (84000000.0 / (double) clk_psc);  
+    pulse_period = (uint32_t) (tim_freq / (1.0 / ((double) pulse_period_ms / 1000.0)));
+
+
+    /* enable clock */
+    rcc_periph_clock_enable(RCC_TIM3);
+    rcc_periph_clock_enable(RCC_GPIOB);
+    
+    /* configure pin */
+    gpio_mode_setup(GPIOB, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, GPIO6);
+    gpio_clear(GPIOB, GPIO6);
+
+    /* disable timer first */
+    timer_disable_counter(TIM3);
+
+    /* configure */
+    timer_continuous_mode(TIM3);
+    timer_set_mode(TIM3, TIM_CR1_CKD_CK_INT, TIM_CR1_CMS_EDGE, TIM_CR1_DIR_UP);
+    timer_disable_preload(TIM3);
+    timer_enable_oc_output(TIM3, TIM_OC1);
+
+    /* set initial values */
+    timer_set_prescaler(TIM3, clk_psc);
+
+    /* 1 and, 2 and, 3, 4*/
+    uint8_t seq[] = {1, 1, 1, 1, 1, 0, 1, 0};
+
+    /* set starting tempo */
+    if ((err = minimal_set_tempo(120U)))
+        return err;
+    if ((err = set_sequence(seq)))
+        return err;
+
+    /* enable interrupt s*/
+    nvic_enable_irq(NVIC_TIM3_IRQ);
+    timer_enable_irq(TIM3, TIM_DIER_UIE);   // overflow
+    timer_enable_irq(TIM3, TIM_DIER_CC1IE); // output compare
+    
+    /* finally enable */
+    timer_enable_counter(TIM3);
+    return OK;
+}
+
+int main(void) {
+    error_t err;
+    rcc_setup();
+
     rcc_periph_clock_enable(RCC_GPIOC);
     gpio_mode_setup(ERROR_LED_PORT, GPIO_MODE_OUTPUT, GPIO_PUPD_PULLDOWN, ERROR_LED_PIN);
     gpio_clear(ERROR_LED_PORT, ERROR_LED_PIN);
-    
-    if ((err = dspi_setup())) {
-        error_handle(err);
-        return err;
-    }
-    if ((err = duart_setup())) {
-        error_handle(err);
-        return err;
-    }
-    if ((err = dmetro_setup())) {
-        error_handle(err);
-        return err;
-    }
 
-    if ((err = sys_setup(10)))
+    if ((err = minimal_timer_setup()))
         return error_handle(err);
-    
-    nvic_set_priority(NVIC_TIM4_IRQ, 2);
-    nvic_set_priority(NVIC_USART2_IRQ, 1);
-    
-
-    uint64_t listening_period;
-    /* flag for detecting packets */
-    bool found;
-
-    /* flag used to wait for arguments to a command */
-    volatile bool waiting = false;
-
-    listening_period = 50; // ms
 
     while (1) {
-        if ((err = duart_poll_packet(&commandp, 100, &found)))
-            return error_handle(err);
-        if (found) {
-            char *ptr, *cmp;
-            ptr = (char*) command_buf;
-            cmp = commandp.id;
-            volatile int ans;
-            ans = 1;
-
-            while (*ptr++ == *cmp++)
-                ans = (*ptr == '\0') ? 0: *ptr - *cmp;  
-            /* strcmp returns 0, so I mimicked that */
-            if (!ans) {
-                waiting = true;
-            }
-            else if (ans && waiting) {
-                /* @todo process beat command */
-                waiting = false;
-            }
-
-        }
-        // dspi_rcv(&sample);
-        // send_stamped_sample();
-
-        dmetro_poll_update((uint64_t) 250); 
         ;
     }
-    return 0;
+    
 }
+
+// int main(void) {
+//     rcc_setup();
+//     error_t err;
+    
+//     rcc_periph_clock_enable(RCC_GPIOC);
+//     gpio_mode_setup(ERROR_LED_PORT, GPIO_MODE_OUTPUT, GPIO_PUPD_PULLDOWN, ERROR_LED_PIN);
+//     gpio_clear(ERROR_LED_PORT, ERROR_LED_PIN);
+    
+//     if ((err = dspi_setup())) {
+//         error_handle(err);
+//         return err;
+//     }
+//     if ((err = duart_setup())) {
+//         error_handle(err);
+//         return err;
+//     }
+//     if ((err = dmetro_setup())) {
+//         error_handle(err);
+//         return err;
+//     }
+
+//     if ((err = sys_setup(10)))
+//         return error_handle(err);
+    
+//     nvic_set_priority(NVIC_TIM4_IRQ, 2);
+//     nvic_set_priority(NVIC_USART2_IRQ, 1);
+    
+
+//     uint64_t listening_period;
+//     /* flag for detecting packets */
+//     bool found;
+
+//     /* flag used to wait for arguments to a command */
+//     volatile bool waiting = false;
+
+//     listening_period = 50; // ms
+
+//     while (1) {
+//         if ((err = duart_poll_packet(&commandp, 100, &found)))
+//             return error_handle(err);
+//         if (found) {
+//             char *ptr, *cmp;
+//             ptr = (char*) command_buf;
+//             cmp = commandp.id;
+//             volatile int ans;
+//             ans = 1;
+
+//             while (*ptr++ == *cmp++)
+//                 ans = (*ptr == '\0') ? 0: *ptr - *cmp;  
+//             /* strcmp returns 0, so I mimicked that */
+//             if (!ans) {
+//                 waiting = true;
+//             }
+//             else if (ans && waiting) {
+//                 /* @todo process beat command */
+//                 waiting = false;
+//             }
+
+//         }
+//         // dspi_rcv(&sample);
+//         // send_stamped_sample();
+
+//         dmetro_poll_update((uint64_t) 250); 
+//         ;
+//     }
+//     return 0;
+// }
