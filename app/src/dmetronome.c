@@ -281,10 +281,9 @@ extern error_t dmetro_setup(void) {
         TIM_CR1_DIR_UP
     );
     
-    // 84MHz / 65535 = 1.281KHz
-    // APB frequency is 42MHz, so it has broken over time.
-    // can't change the clock div, so it will be 84MHz...
-    timer_set_prescaler(TIM4, MAX_PSC);
+    /* through testing, this seems to be a decent number, capable of supporting all frequencies required. */
+    uint32_t prescaler = 2048U;
+    timer_set_prescaler(TIM4, prescaler);
     
     // disabling preload means that the new period will be effective immediately
     // preload enabled would mean each period would reset, which is not desirable.
