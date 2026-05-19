@@ -144,20 +144,19 @@ void queue_toggle(void) {
     timer_set_oc_value(TIM3, TIM_OC1, temp);
 }
 
-/** NOTE: 
- * blue     = Overflow Interrupt =   The beat (crotchet)        = PB8
- * red      = OC interrupt       =   LED toggling off (100ms)   = PC12
- * green    = OC interrupt       =   The sub-beat (quaver)      = PB6
+/**
+ * overflow = PC9   (beat)
+ * oc1      = PB8   (toggle)
+ * oc2      = PB9   (quaver)
  */
 
 void tim3_isr(void) {
 
     if (timer_get_flag(TIM3, TIM_SR_UIF)) {
-        /* select flag that triggered this */
-        // uint32_t flag = (timer_get_flag(TIM3, TIM_SR_UIF)) ? TIM_SR_UIF : TIM_SR_CC2IF;
-
         /* if beat is set to play, turn LED on*/
-        if (sequence[beat_idx]) {    
+        if (sequence[beat_idx] == 1) {    
+            gpio_toggle(GPIOC, GPIO9); // todo remove 
+
             /* turn LED on */
             gpio_set(GPIOB, GPIO6);
 
@@ -169,8 +168,10 @@ void tim3_isr(void) {
         timer_clear_flag(TIM3, TIM_SR_UIF);
     }
     else if (timer_get_flag(TIM3, TIM_SR_CC1IF)) {
+        
         /* if LED is currently on, turn it off*/
         if (led_status) {
+            gpio_toggle(GPIOB, GPIO8);  // todo remove 
             /* turn LED off */
             gpio_clear(GPIOB, GPIO6);
 
@@ -183,7 +184,9 @@ void tim3_isr(void) {
     }
     else if (timer_get_flag(TIM3, TIM_SR_CC2IF)) {
         /* if beat is set to play, turn LED on*/
-        if (sequence[beat_idx]) {    
+        if (sequence[beat_idx] == 1) {    
+            gpio_toggle(GPIOB, GPIO9); // todo remove 
+
             /* turn LED on */
             gpio_set(GPIOB, GPIO6);
 
@@ -265,9 +268,9 @@ static error_t minimal_timer_setup() {
     /* set timer peripheral prescaler */
     timer_set_prescaler(TIM3, clk_psc);
 
+ 
 
-    /* 1 and 2 and 3 and 4 and */
-    uint8_t seq[] = {1, 1, 1, 1, 1, 1, 1, 1};
+    uint8_t seq[] = {1, 1, 1, 1, 1, 0, 1, 0};
 
     /* set starting tempo */
     if ((err = minimal_set_tempo(120U)))
@@ -293,11 +296,19 @@ static error_t minimal_timer_setup() {
 int main(void) {
     error_t err;
     rcc_setup();
-
-    /* red LED, usually for errors but for testing one of the triggers in ISR this time. */
+    
+    /* set up error LED */
     rcc_periph_clock_enable(RCC_GPIOC);
     gpio_mode_setup(ERROR_LED_PORT, GPIO_MODE_OUTPUT, GPIO_PUPD_PULLDOWN, ERROR_LED_PIN);
     gpio_clear(ERROR_LED_PORT, ERROR_LED_PIN);
+
+    rcc_periph_clock_enable(RCC_GPIOB);
+    gpio_mode_setup(GPIOC, GPIO_MODE_OUTPUT, GPIO_PUPD_PULLDOWN, GPIO9);
+    gpio_mode_setup(GPIOB, GPIO_MODE_OUTPUT, GPIO_PUPD_PULLDOWN, GPIO8);
+    gpio_mode_setup(GPIOB, GPIO_MODE_OUTPUT, GPIO_PUPD_PULLDOWN, GPIO9);
+    gpio_clear(GPIOC, GPIO9);
+    gpio_clear(GPIOB, GPIO8);
+    gpio_clear(GPIOB, GPIO9);
 
     if ((err = minimal_timer_setup()))
         return error_handle(err);
