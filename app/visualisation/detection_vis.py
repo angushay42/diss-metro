@@ -93,6 +93,74 @@ def detect_note(testing: bool):
 - this can all be done in real time, so long as w(n) returns 1 (even weighting)
 """
 
+def new_detect_onsets(
+    target: list[int],
+    window_size: int,
+    onset_thresh: int,
+) -> list[tuple[int, int]]:
+    # error check length 
+    if len(target) < window_size + 1:
+        return []
+    
+    # window size is centred, so must be odd
+    if not (window_size & 1):
+        return []
+
+    
+    # fill window first
+    # take the smaller half of window, then i+1 is exactly centred 
+    half_window = window_size // 2
+
+    n = len(target)
+    # calculating difference, so i starts from 1
+    i = 0
+
+    # array for results to be placed into
+    # length will be len(target) - window_size - 1
+    # -1 for taking the derivative 
+    onsets = []
+    # list of averages, effectively ans(n)
+    wavgs = []
+    
+    # lowsignalthresh 
+    lsthresh = 80
+    # running average of the low signal
+    lsavg = target[0]
+
+    # average energy of the window
+    wsum, wavg = 0, 0
+    wstart, wstop = 0, half_window
+
+    # the outer loop (i) will iterate over each sample
+    # when i == window size, we store the time stamp of i - (window // 2)
+    while i < (n - half_window):
+        # calculate running sum still 
+        if i > 0 and abs(lsavg - target[i]) < lsthresh:
+            lsavg = ((lsavg * (i)) + target[i]) / i + 1
+        
+        # valid window size
+        if i - window_size >= 0:
+            # add new data 
+            wsum += abs(lsavg - target[i])
+
+            # energy of sample (absolute squared)
+            wavg = np.log10(pow(wsum, 2) / window_size)
+            # track each difference at point n 
+            wavgs.append(wavg if not wavgs else wavg - wavgs[-1])
+            if wavgs[-1] >= onset_thresh:
+                # mark the onset coming from the *centre* of the window 
+                # onsets.append((i - window_size, i ))
+                onsets.append(i-half_window)
+
+            # remove "past" data
+            wsum -= abs(lsavg - target[i-window_size])
+        else:
+            # if window isn't valid yet, keep adding  
+            wsum += abs(lsavg - target[i])
+            
+        i += 1
+    return onsets 
+
 # https://stackoverflow.com/questions/294468/note-onset-detection
 # this link is super helpful. the top answer is very detailed however I think I just need to adjust 
 # my method a little bit, and actually it seems like a combination of differernt methods I've tried. Will update git.
@@ -224,11 +292,11 @@ def test_onsets():
     window_size /= 3.3
     window_size /= 2
 
-    min_window = 50
+    min_window = 49
     window_size = max(min_window, window_size)
 
-    window_size = 50
-    thresh = 1    # amplitude in LSB
+    window_size = 49
+    thresh = 2000   # amplitude in LSB
 
     # test no processing, compressed, filtered.
     inputs = []
@@ -274,12 +342,22 @@ def test_onsets():
         target = samples
         plot_stem(ax, x_points, inputs[i], "teal", label=labels[i])
 
-        onsets = detect_onsets(inputs[i], window_size, thresh)
-        ax = plot_onsets(ax, inputs[i], onsets, colors=colors[i % len(colors)])
+        onsets = new_detect_onsets(inputs[i], window_size, thresh)
+        # ax = plot_onsets(ax, inputs[i], onsets, colors=colors[i % len(colors)])
+        ax.vlines([x_points[x]for x in onsets], 0, 4095, colors="red")
         ax.set_label("")
         ax.legend()
-  
 
+    # # temp test on raw data with new algorithm 
+    # window_size = 49
+    # thresh = np.log10(pow(480, 2))    # amplitude in LSB
+    # fig, axs = plt.subplots()
+    # plot_stem(axs, x_points, target, "teal", "original")
+    # onsets = new_detect_onsets(target, window_size, thresh)
+    # axs.vlines([x_points[x]for x in onsets], 0, 4095, colors="red", label="D(logE)/dt")
+
+    # axs.set_ylim(0, 4095)
+    # axs.legend()
     plt.show()
 
 def test_average():
@@ -428,9 +506,9 @@ def main():
     # plot_stem(ax, x_points, target, "teal", "original")
     # ax.legend()
     # plt.show()
-    test_lowpass()
+    # test_lowpass()
     # test_compression()
-    # test_onsets()
+    test_onsets()
     # test_smooth()
 
 if __name__ == "__main__":
