@@ -129,11 +129,10 @@ def new_detect_onsets(
 
     # average energy of the window
     wsum, wavg = 0, 0
-    wstart, wstop = 0, half_window
 
     # the outer loop (i) will iterate over each sample
     # when i == window size, we store the time stamp of i - (window // 2)
-    while i < (n - half_window):
+    while i < n:
         # calculate running sum still 
         if i > 0 and abs(lsavg - target[i]) < lsthresh:
             lsavg = ((lsavg * (i)) + target[i]) / i + 1
@@ -159,6 +158,7 @@ def new_detect_onsets(
             wsum += abs(lsavg - target[i])
             
         i += 1
+    # return wavgs # todo remove
     return onsets 
 
 # https://stackoverflow.com/questions/294468/note-onset-detection
@@ -296,7 +296,8 @@ def test_onsets():
     window_size = max(min_window, window_size)
 
     window_size = 49
-    thresh = 2000   # amplitude in LSB
+    thresh = 2600    # amp in lsb
+    thresh = np.log10(pow(thresh, 2))   # convert 
 
     # test no processing, compressed, filtered.
     inputs = []
@@ -346,6 +347,7 @@ def test_onsets():
         # ax = plot_onsets(ax, inputs[i], onsets, colors=colors[i % len(colors)])
         ax.vlines([x_points[x]for x in onsets], 0, 4095, colors="red")
         ax.set_label("")
+        ax.set_ylim(0, 4095)
         ax.legend()
 
     # # temp test on raw data with new algorithm 
@@ -353,11 +355,10 @@ def test_onsets():
     # thresh = np.log10(pow(480, 2))    # amplitude in LSB
     # fig, axs = plt.subplots()
     # plot_stem(axs, x_points, target, "teal", "original")
+    # # wavgs = new_detect_onsets(target, window_size, thresh)
     # onsets = new_detect_onsets(target, window_size, thresh)
-    # axs.vlines([x_points[x]for x in onsets], 0, 4095, colors="red", label="D(logE)/dt")
+    # # axs.vlines([x_points[x]for x in onsets], 0, 4095, colors="red", label="D(logE)/dt")
 
-    # axs.set_ylim(0, 4095)
-    # axs.legend()
     plt.show()
 
 def test_average():
