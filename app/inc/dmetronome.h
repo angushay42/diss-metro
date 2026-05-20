@@ -25,7 +25,6 @@
 extern error_t dmetro_poll_update(uint64_t poll_period);
 
 /*************** metronome interactino ****************/
-extern error_t dmetro_get_tempo_reading(uint16_t *data, uint16_t cycle_timeout);
 extern void dmetro_start(void);
 extern void dmetro_stop(void);
 extern error_t dmetro_set_tempo(uint16_t bpm);
@@ -37,7 +36,7 @@ extern error_t dmetro_teardown(void);
 extern error_t dadc_setup(void);
 extern error_t dadc_teardown(void);
 
-
+/* shared global variable of last time a beat was played, in ms */
 extern volatile uint64_t beat_stamp;
 
 #endif  // DMETRONOME_H
