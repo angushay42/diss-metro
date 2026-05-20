@@ -323,30 +323,36 @@ def test_compression():
     plt.show()
 
 def test_lowpass():
+    """Test Wiki SImple IIR filter with different RC values"""
     target = samples
-    # dt = 3.3 / 1000 # in seconds
-    # rcs = [i * dt for i in range(5)]
+    cutoffs = [60, 80, 100, 150, 200, 250, 300, 350]
+    dt = 3.3 / 1000 # in seconds
+    # generate rc values 
+    rcs = [1 / (np.pi * 2 * x) for x in cutoffs]
 
-    ##  wiki lowpass with different time constants
-    # num_plots = len(rcs) + 2    # 1 for orig, 1 for scipy
-    # colors = ['r', 'b']
-    # fig, axs = plt.subplots(2)
-    # fig: Figure
-    # axs: list[Axes]
-    # # for i in range(num_plots - 1):
-    # #     ax = axs[i]
-    # #     if i == 0:
-    # #         m, s, b = ax.stem(x_points, target, markerfmt=" ")
-    # #         s.set_color("g")
-    # #         ax.set_ylim(0, 4095)
-    # #         continue
-    # #     filtered = lowpass(target, dt, rcs[i - 1])
-    # #     color = colors[i % len(colors)]
-    # #     m,s,b = ax.stem(x_points, filtered, markerfmt=" ", label=f"RC = {rcs[i-1]}")
-    # #     s.set_color(color)
-    # #     ax.legend()
+    rows, cols = 4, 2
+    # two colums of four plots 
+    fig, axs = plt.subplots(rows, cols)
+    fig: Figure
+    axs: list[Axes]
+    for i in range(len(rcs)):
+        row, col = i // cols, i % cols
+        # get current axes index
+        ax = axs[row, col]
 
-    
+        # plot original signal 
+        m, s, b = ax.stem(x_points, target, markerfmt=" ")
+        s.set_color("teal")
+
+        filtered = lowpass(target, dt, rcs[i])
+        ax = plot_line(ax, x_points, filtered, "red", label=f"RC = {rcs[i]:.2f}, Cutoff = {cutoffs[i]}Hz")
+
+        ax.set_ylim(0, 4095)
+        ax.legend()
+    plt.show()
+
+def test_compare_lowpass():
+    target = samples
     fig, (ax1, ax2) = plt.subplots(2)
     ax1 = plot_line(ax1, x_points, target, "teal", "original")
     ax1: Axes
@@ -422,9 +428,9 @@ def main():
     # plot_stem(ax, x_points, target, "teal", "original")
     # ax.legend()
     # plt.show()
-    # test_lowpass()
+    test_lowpass()
     # test_compression()
-    test_onsets()
+    # test_onsets()
     # test_smooth()
 
 if __name__ == "__main__":
